@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkout | YourChoice</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="logo">YourChoice</div>
+    <nav>
+      <ul>
+        <li><a href="index.html#hero">Home</a></li>
+        <li><a href="index.html#products">Shop</a></li>
+        <li><a href="index.html">🛒 Cart</a></li>
+        <li><a href="index.html#contact">Contact</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="checkout-container">
+    <h1>Checkout</h1>
+    <section class="checkout-form-section">
+      <form id="checkout-form">
+        <h2>Customer Information</h2>
+        <input type="text" id="customer-name" name="name" placeholder="Full Name" required />
+        <input type="email" id="customer-email" name="email" placeholder="Email Address" required />
+        <input type="tel" id="customer-phone" name="phone" placeholder="Phone Number" required />
+        <input type="text" id="customer-address" name="address" placeholder="Delivery Address" required />
+      </form>
+    </section>
+    <section class="order-summary-section">
+      <h2>Order Summary</h2>
+      <ul id="order-summary-list">
+        <!-- Cart items will be loaded here -->
+      </ul>
+      <p class="order-total">Total: GH₵<span id="order-total">0.00</span></p>
+      <button id="place-order-btn" type="submit" form="checkout-form">Place Order</button>
+    </section>
+    <div id="checkout-toast" class="toast"></div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-content">
+      <h2>Contact Us</h2>
+      <p>Have questions or feedback? We'd love to hear from you.</p>
+      <form>
+        <input type="text" placeholder="Your Name" required />
+        <input type="email" placeholder="Your Email" required />
+        <textarea placeholder="Your Message" rows="4" required></textarea>
+        <button type="submit">Send Message</button>
+      </form>
+      <p class="copyright">© 2025 YourChoice. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    // Load cart from localStorage and display order summary
+    function loadOrderSummary() {
+      const cart = JSON.parse(localStorage.getItem('cart')) || [];
+      const list = document.getElementById('order-summary-list');
+      const totalEl = document.getElementById('order-total');
+      let total = 0;
+      list.innerHTML = '';
+      if (cart.length === 0) {
+        list.innerHTML = '<li>Your cart is empty.</li>';
+        totalEl.textContent = '0.00';
+        document.getElementById('place-order-btn').disabled = true;
+        return;
+      }
+      cart.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = `${item.name} x${item.quantity} - GH₵${(item.price * item.quantity).toFixed(2)}`;
+        list.appendChild(li);
+        total += item.price * item.quantity;
+      });
+      totalEl.textContent = total.toFixed(2);
+      document.getElementById('place-order-btn').disabled = false;
+    }
+    loadOrderSummary();
+    // Handle form submission and send order to backend
+    document.getElementById('checkout-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const cart = JSON.parse(localStorage.getItem('cart')) || [];
+      if (cart.length === 0) {
+        showToast('Your cart is empty!', 'error');
+        return;
+      }
+
+      const formData = new FormData(e.target);
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      const orderData = {
+        name: formData.get('name'),
+        email: formData.get('email'),
+        phone: formData.get('phone'),
+        address: formData.get('address'),
+        items: cart,
+        total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+      };
+      
+      // Associate order with user if logged in
+      if (user.id) {
+        orderData.userId = user.id;
+      }
+
+      try {
+        const response = await fetch('http://localhost:5000/api/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(orderData)
+        });
+
+        if (response.ok) {
+          showToast('Order placed successfully!', 'success');
+          // Clear cart after successful order
+          localStorage.removeItem('cart');
+          // Redirect to home page after 2 seconds
+          setTimeout(() => {
+            window.location.href = 'index.html';
+          }, 2000);
+        } else {
+          const errorData = await response.json();
+          showToast(errorData.error || 'Failed to place order', 'error');
+        }
+      } catch (error) {
+        console.error('Error placing order:', error);
+        showToast('Network error. Please try again.', 'error');
+      }
+    });
+
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('checkout-toast');
+      toast.textContent = message;
+      toast.className = `toast show ${type}`;
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+  </script>
+</body>
+</html> 

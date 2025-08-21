@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard | YourChoice</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="admin-dashboard">
+    <!-- Admin Header -->
+    <header class="admin-header">
+      <div class="admin-header-content">
+        <h1>YourChoice Admin</h1>
+        <button id="logout-btn" class="logout-btn">Logout</button>
+      </div>
+    </header>
+
+    <!-- Dashboard Content -->
+    <main class="admin-main">
+      <!-- Stats Overview -->
+      <section class="stats-section">
+        <h2>Dashboard Overview</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <h3>Total Orders</h3>
+            <p id="total-orders">0</p>
+          </div>
+          <div class="stat-card">
+            <h3>Total Revenue</h3>
+            <p id="total-revenue">GH₵0.00</p>
+          </div>
+          <div class="stat-card">
+            <h3>Pending Orders</h3>
+            <p id="pending-orders">0</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Orders Table -->
+      <section class="orders-section">
+        <div class="section-header">
+          <h2>Recent Orders</h2>
+          <button id="refresh-orders" class="refresh-btn">Refresh</button>
+        </div>
+        
+        <div class="orders-table-container">
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Customer</th>
+                <th>Items</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="orders-tbody">
+              <!-- Orders will be loaded here -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // Check if admin is logged in
+    if (!localStorage.getItem('adminLoggedIn')) {
+      window.location.href = 'admin-login.html';
+    }
+
+    // Logout functionality
+    document.getElementById('logout-btn').addEventListener('click', function() {
+      localStorage.removeItem('adminLoggedIn');
+      window.location.href = 'admin-login.html';
+    });
+
+    // Load dashboard data
+    async function loadDashboardData() {
+      try {
+        // Load stats
+        const statsResponse = await fetch('http://localhost:5000/api/admin/stats');
+        const stats = await statsResponse.json();
+        
+        document.getElementById('total-orders').textContent = stats.totalOrders;
+        document.getElementById('total-revenue').textContent = `GH₵${stats.totalRevenue.toFixed(2)}`;
+        document.getElementById('pending-orders').textContent = stats.pendingOrders;
+
+        // Load orders
+        const ordersResponse = await fetch('http://localhost:5000/api/admin/orders');
+        const orders = await ordersResponse.json();
+        
+        displayOrders(orders);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      }
+    }
+
+    // Display orders in table
+    function displayOrders(orders) {
+      const tbody = document.getElementById('orders-tbody');
+      tbody.innerHTML = '';
+
+      if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="no-orders">No orders found</td></tr>';
+        return;
+      }
+
+      orders.forEach(order => {
+        const row = document.createElement('tr');
+        const itemsText = order.items.map(item => `${item.name} (x${item.quantity})`).join(', ');
+        
+        row.innerHTML = `
+          <td>${order._id.slice(-6)}</td>
+          <td>
+            <div class="customer-info">
+              <strong>${order.name}</strong><br>
+              <small>${order.email}</small><br>
+              <small>${order.phone}</small>
+            </div>
+          </td>
+          <td class="items-cell">${itemsText}</td>
+          <td>GH₵${order.total.toFixed(2)}</td>
+          <td>
+            <select class="status-select" data-order-id="${order._id}" onchange="updateOrderStatus('${order._id}', this.value)">
+              <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option>
+              <option value="Processing" ${order.status === 'Processing' ? 'selected' : ''}>Processing</option>
+              <option value="Shipped" ${order.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
+              <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
+              <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+            </select>
+          </td>
+          <td>${new Date(order.createdAt).toLocaleDateString()}</td>
+          <td>
+            <button class="view-details-btn" onclick="viewOrderDetails('${order._id}')">View</button>
+          </td>
+        `;
+        
+        tbody.appendChild(row);
+      });
+    }
+
+    // Update order status
+    async function updateOrderStatus(orderId, newStatus) {
+      try {
+        const response = await fetch(`http://localhost:5000/api/admin/orders/${orderId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status: newStatus })
+        });
+
+        if (response.ok) {
+          // Reload dashboard data to reflect changes
+          loadDashboardData();
+        } else {
+          alert('Failed to update order status');
+        }
+      } catch (error) {
+        console.error('Error updating order status:', error);
+        alert('Error updating order status');
+      }
+    }
+
+    // View order details (placeholder)
+    function viewOrderDetails(orderId) {
+      alert(`Viewing details for order: ${orderId}\n\nThis feature will show full order details, customer address, and item breakdown.`);
+    }
+
+    // Refresh orders
+    document.getElementById('refresh-orders').addEventListener('click', loadDashboardData);
+
+    // Load initial data
+    loadDashboardData();
+
+    // Auto-refresh every 30 seconds
+    setInterval(loadDashboardData, 30000);
+  </script>
+</body>
+</html> 

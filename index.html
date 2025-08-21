@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YourChoice</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="navbar">
+    <div class="logo">YourChoice</div>
+    </div>
+    <nav>
+    <ul>
+      <li><a href="#hero">Home</a></li>
+      <li><a href="#products">Shop</a></li>
+      <li><a href="#"> 🛒 Cart <span id="cart-count" class="cart-count">0</span></a></li>
+      <li><a href="#contact">Contact</a></li>
+      <li id="auth-links">
+        <a href="login.html">Login</a> / <a href="register.html">Register</a>
+      </li>
+      <li id="user-info" style="display: none;">
+        <span id="user-name"></span> | <a href="#" id="logout-link">Logout</a>
+      </li>
+    </ul>
+    </nav>
+</header>
+
+  <section class="hero">
+    <h1>Welcome to YourChoice</h1>
+    <p>Shop your favourites, anytime.</p>
+  </section>
+
+  <!-- Sticky Category Filter -->
+  <section class="category-filter" id="category-filter">
+    <div class="filter-container">
+      <button class="filter-btn active" data-category="all">All Products</button>
+      <button class="filter-btn" data-category="computers">💻 Computers</button>
+      <button class="filter-btn" data-category="accessories">🧩 Accessories</button>
+      <button class="filter-btn" data-category="cables-power">🔌 Cables & Power</button>
+      <button class="filter-btn" data-category="pc-components">🧠 PC Components</button>
+      <button class="filter-btn" data-category="bags-protection">🎒 Bags & Protection</button>
+      <button class="filter-btn" data-category="networking">🌐 Networking</button>
+    </div>
+    <button class="toggle-categories-btn" onclick="toggleCategories()" title="Toggle Categories">
+      <span class="toggle-icon">▼</span>
+    </button>
+  </section>
+
+  <!-- Trending Products Carousel -->
+  <section class="trending-products">
+    <h2>🔥 Trending Products</h2>
+    <div class="carousel-container">
+      <button class="carousel-btn prev-btn" onclick="slideCarousel('prev')">‹</button>
+      <div class="carousel-track" id="trending-carousel">
+        <!-- Trending products will be loaded here -->
+      </div>
+      <button class="carousel-btn next-btn" onclick="slideCarousel('next')">›</button>
+    </div>
+    <div class="carousel-dots" id="carousel-dots">
+      <!-- Dots will be generated here -->
+    </div>
+  </section>
+
+  <!-- All Products -->
+  <section class="products" id="products">
+    <!-- Products will be loaded dynamically -->
+  </section>
+
+<footer class="footer" id="contact">
+  <div class="footer-content">
+    <h2>Contact Us</h2>
+    <p>Have questions or feedback? We'd love to hear from you.</p>
+    <form>
+      <input type="text" placeholder="Your Name" required />
+      <input type="email" placeholder="Your Email" required />
+      <textarea placeholder="Your Message" rows="4" required></textarea>
+      <button type="submit">Send Message</button>
+    </form>
+    <p class="copyright">© 2025 YourChoice. All rights reserved.</p>
+  </div>
+</footer>
+
+<div id="toast" class="toast"></div>
+
+<!-- Floating Cart Button -->
+<button id="floating-cart-btn" class="floating-cart-btn" onclick="toggleCartView()">
+  🛒
+  <span class="cart-count" id="floating-cart-count">0</span>
+</button>
+
+<!-- Floating Toggle Button -->
+<button id="floating-toggle-btn" class="floating-toggle-btn" onclick="toggleCategories()" title="Show Categories">
+  <span class="toggle-icon">▲</span>
+</button>
+
+<div id="cart-overlay" class="cart-overlay"></div>
+
+<div id="cart" class="cart-modal">
+  <button id="close-cart" class="close-cart">&times;</button> 
+  <h2>Your Cart</h2>
+  <ul id="cart-items"></ul>
+  <p>Total: GH₵<span id="cart-total">0.00</span></p>
+  <button id="checkout-btn">Proceed to Checkout</button>
+  <button id="clear-cart-btn" class="clear-cart">Clear Cart</button>
+</div>
+
+  <script src="src/products.js"></script>
+  <script src="script.js"></script>
+  <script>
+    // Check user authentication status
+    function checkAuthStatus() {
+      const userLoggedIn = localStorage.getItem('userLoggedIn');
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      const authLinks = document.getElementById('auth-links');
+      const userInfo = document.getElementById('user-info');
+      const userName = document.getElementById('user-name');
+      
+      if (userLoggedIn && user.name) {
+        authLinks.style.display = 'none';
+        userInfo.style.display = 'inline';
+        userName.textContent = user.name;
+      } else {
+        authLinks.style.display = 'inline';
+        userInfo.style.display = 'none';
+      }
+    }
+    
+    // Handle logout
+    document.getElementById('logout-link').addEventListener('click', function(e) {
+      e.preventDefault();
+      localStorage.removeItem('userLoggedIn');
+      localStorage.removeItem('user');
+      checkAuthStatus();
+      window.location.reload();
+    });
+    
+    // Check auth status on page load
+    checkAuthStatus();
+  </script>
+</body>
+</html>
