@@ -45,7 +45,7 @@
       const messageEl = document.getElementById('create-message');
       
       try {
-        const response = await fetch('http://localhost:5000/api/admin/create', {
+        const response = await fetch('/api/admin/create', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

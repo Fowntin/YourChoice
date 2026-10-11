@@ -82,7 +82,7 @@
     async function loadDashboardData() {
       try {
         // Load stats
-        const statsResponse = await fetch('http://localhost:5000/api/admin/stats');
+        const statsResponse = await fetch('/api/admin/stats');
         const stats = await statsResponse.json();
         
         document.getElementById('total-orders').textContent = stats.totalOrders;
@@ -90,7 +90,7 @@
         document.getElementById('pending-orders').textContent = stats.pendingOrders;
 
         // Load orders
-        const ordersResponse = await fetch('http://localhost:5000/api/admin/orders');
+        const ordersResponse = await fetch('/api/admin/orders');
         const orders = await ordersResponse.json();
         
         displayOrders(orders);
@@ -146,7 +146,7 @@
     // Update order status
     async function updateOrderStatus(orderId, newStatus) {
       try {
-        const response = await fetch(`http://localhost:5000/api/admin/orders/${orderId}`, {
+        const response = await fetch(`/api/admin/orders/${orderId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
