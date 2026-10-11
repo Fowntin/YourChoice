@@ -1,0 +1,21 @@
+{
+  "name": "yourchoice",
+  "version": "1.0.0",
+  "description": "YourChoice - Modern computer and electronics store",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "node -e \"console.log('Build completed successfully')\"",
+    "test": "NODE_ENV=test node --test backend/test/health.test.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.0",
+    "express": "^4.21.2",
+    "mongoose": "^8.16.3"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0"
+  }
+}

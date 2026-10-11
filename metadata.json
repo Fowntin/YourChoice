@@ -1,0 +1,5 @@
+{
+  "name": "YourChoice",
+  "description": "YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard.",
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
