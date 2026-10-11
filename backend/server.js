@@ -2,11 +2,14 @@ const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 require('dotenv').config({ override: true });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const rootDir = path.join(__dirname, '..');
+const JWT_SECRET = process.env.JWT_SECRET || 'yourchoice_default_fallback_secret_key_2026';
 
 // Middleware
 app.use(cors());
@@ -16,7 +19,10 @@ app.use(express.json());
 const inMemory = {
   users: [],
   admins: [
-    { username: 'admin', password: 'admin123' }
+    {
+      username: process.env.ADMIN_USERNAME || 'admin',
+      password: bcrypt.hashSync(process.env.ADMIN_INITIAL_PASSWORD || 'admin123', 10)
+    }
   ],
   orders: [
     {
@@ -93,16 +99,47 @@ const User = mongoose.model('User', userSchema);
 
 let isMongoConnected = false;
 
-// Create initial admin user if none exists in MongoDB
+// Authenticate Admin Middleware
+function authenticateAdmin(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing or invalid authentication token' });
+  }
+
+  const token = authHeader.substring(7).trim();
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: Insufficient privileges' });
+    }
+    req.admin = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized: Session expired or invalid token' });
+  }
+}
+
+// Create or verify initial admin user with salted bcrypt hash
 async function createInitialAdmin() {
   try {
-    const adminExists = await Admin.findOne({ username: 'admin' });
-    if (!adminExists) {
-      const admin = new Admin({ username: 'admin', password: 'admin123' });
+    const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+    const initialPassword = process.env.ADMIN_INITIAL_PASSWORD || 'admin123';
+
+    const existingAdmin = await Admin.findOne({ username: adminUsername });
+    if (!existingAdmin) {
+      const hashedPassword = await bcrypt.hash(initialPassword, 10);
+      const admin = new Admin({ username: adminUsername, password: hashedPassword });
       await admin.save();
-      console.log('✅ Initial admin user created in MongoDB: admin/admin123');
+      console.log(`✅ Initial admin user '${adminUsername}' created with salted bcrypt hash in MongoDB`);
     } else {
-      console.log('✅ Admin user already exists in MongoDB');
+      // Auto-migrate legacy plaintext password if it isn't a bcrypt hash yet
+      if (!existingAdmin.password.startsWith('$2a$') && !existingAdmin.password.startsWith('$2b$')) {
+        existingAdmin.password = await bcrypt.hash(existingAdmin.password, 10);
+        await existingAdmin.save();
+        console.log(`🔒 Existing admin '${adminUsername}' password securely migrated to bcrypt hash`);
+      } else {
+        console.log(`✅ Admin user '${adminUsername}' verified in MongoDB (bcrypt hashed)`);
+      }
     }
   } catch (err) {
     console.error('❌ Error creating initial admin in MongoDB:', err);
@@ -279,39 +316,83 @@ app.post('/api/orders', async (req, res) => {
 app.post('/api/admin/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (isMongoConnected) {
-      const admin = await Admin.findOne({ username });
-      if (!admin || admin.password !== password) {
-        return res.status(401).json({ success: false, message: 'Invalid credentials' });
-      }
-      return res.json({ success: true, message: 'Login successful' });
+    if (!username || !password) {
+      return res.status(400).json({ success: false, message: 'Username and password are required' });
     }
 
-    // In-memory fallback
-    const admin = inMemory.admins.find(a => a.username === username && a.password === password);
-    if (!admin) {
+    let adminUser = null;
+    let passwordHash = null;
+
+    if (isMongoConnected) {
+      adminUser = await Admin.findOne({ username });
+      if (adminUser) {
+        passwordHash = adminUser.password;
+      }
+    } else {
+      adminUser = inMemory.admins.find(a => a.username === username);
+      if (adminUser) {
+        passwordHash = adminUser.password;
+      }
+    }
+
+    if (!adminUser || !passwordHash) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
-    res.json({ success: true, message: 'Login successful' });
+
+    // Verify password with bcrypt (supports auto-migration if legacy plaintext)
+    let isMatch = false;
+    if (passwordHash.startsWith('$2a$') || passwordHash.startsWith('$2b$')) {
+      isMatch = await bcrypt.compare(password, passwordHash);
+    } else {
+      isMatch = (password === passwordHash);
+      if (isMatch && isMongoConnected) {
+        adminUser.password = await bcrypt.hash(password, 10);
+        await adminUser.save();
+      }
+    }
+
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    // Issue signed JWT
+    const token = jwt.sign(
+      { id: adminUser._id || adminUser.username, username: adminUser.username, role: 'admin' },
+      JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Login successful',
+      token,
+      admin: { username: adminUser.username }
+    });
   } catch (err) {
     console.error('Admin login error:', err);
-    res.status(500).json({ success: false, message: 'Login failed' });
+    res.status(500).json({ success: false, message: 'Login failed due to a server error' });
   }
 });
 
-// Create admin user endpoint
-app.post('/api/admin/create', async (req, res) => {
+// Create admin user endpoint (Protected: only authenticated admins can create admins)
+app.post('/api/admin/create', authenticateAdmin, async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {
       return res.status(400).json({ success: false, message: 'Username and password required' });
     }
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     if (isMongoConnected) {
       const existingAdmin = await Admin.findOne({ username });
       if (existingAdmin) {
         return res.status(400).json({ success: false, message: 'Admin already exists' });
       }
-      const admin = new Admin({ username, password });
+      const admin = new Admin({ username, password: hashedPassword });
       await admin.save();
       return res.status(201).json({ success: true, message: 'Admin created successfully' });
     }
@@ -320,7 +401,7 @@ app.post('/api/admin/create', async (req, res) => {
     if (inMemory.admins.some(a => a.username === username)) {
       return res.status(400).json({ success: false, message: 'Admin already exists' });
     }
-    inMemory.admins.push({ username, password });
+    inMemory.admins.push({ username, password: hashedPassword });
     res.status(201).json({ success: true, message: 'Admin created successfully' });
   } catch (err) {
     console.error('Admin creation error:', err);
@@ -328,8 +409,8 @@ app.post('/api/admin/create', async (req, res) => {
   }
 });
 
-// Get all orders (admin only)
-app.get('/api/admin/orders', async (req, res) => {
+// Get all orders (Protected: admin only)
+app.get('/api/admin/orders', authenticateAdmin, async (req, res) => {
   try {
     if (isMongoConnected) {
       const orders = await Order.find().sort({ createdAt: -1 });
@@ -341,8 +422,8 @@ app.get('/api/admin/orders', async (req, res) => {
   }
 });
 
-// Update order status (admin only)
-app.put('/api/admin/orders/:id', async (req, res) => {
+// Update order status (Protected: admin only)
+app.put('/api/admin/orders/:id', authenticateAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -365,8 +446,8 @@ app.put('/api/admin/orders/:id', async (req, res) => {
   }
 });
 
-// Get dashboard stats (admin only)
-app.get('/api/admin/stats', async (req, res) => {
+// Get dashboard stats (Protected: admin only)
+app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
   try {
     if (isMongoConnected) {
       const totalOrders = await Order.countDocuments();

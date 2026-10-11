@@ -55,15 +55,17 @@
         
         const data = await response.json();
         
-        if (data.success) {
+        if (data.success && data.token) {
           messageEl.textContent = 'Login successful! Redirecting...';
           messageEl.className = 'login-message success';
-          // Store admin session (simple approach)
+          // Store verified JWT session token
+          localStorage.setItem('adminToken', data.token);
+          localStorage.setItem('adminUser', data.admin?.username || username);
           localStorage.setItem('adminLoggedIn', 'true');
           // Redirect to dashboard
           setTimeout(() => {
-            window.location.href = 'admin-dashboard.html';
-          }, 1000);
+            window.location.replace('admin-dashboard.html');
+          }, 600);
         } else {
           messageEl.textContent = data.message || 'Login failed';
           messageEl.className = 'login-message error';

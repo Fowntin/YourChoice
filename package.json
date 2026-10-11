@@ -7,12 +7,15 @@
     "dev": "node server.js",
     "start": "node server.js",
     "build": "node -e \"console.log('Build completed successfully')\"",
+    "create-admin": "node scripts/create-admin.js",
     "test": "NODE_ENV=test node --test backend/test/health.test.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
     "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.16.3"
   },
   "devDependencies": {

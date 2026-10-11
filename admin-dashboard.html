@@ -67,8 +67,11 @@
   </div>
 
   <script>
-    // Check if admin is logged in
-    if (localStorage.getItem('adminLoggedIn') !== 'true') {
+    const adminToken = localStorage.getItem('adminToken');
+
+    // Gate: Check if admin has a valid session token
+    if (!adminToken) {
+      localStorage.removeItem('adminLoggedIn');
       window.location.replace('admin-login.html');
     } else {
       const container = document.getElementById('admin-dashboard-container');
@@ -77,8 +80,31 @@
       setInterval(loadDashboardData, 30000);
     }
 
+    // Helper: Build authorization headers with bearer token
+    function getAuthHeaders() {
+      const token = localStorage.getItem('adminToken');
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      };
+    }
+
+    // Helper: Handle expired/invalid sessions
+    function handleAuthError(response) {
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminUser');
+        localStorage.removeItem('adminLoggedIn');
+        window.location.replace('admin-login.html');
+        return true;
+      }
+      return false;
+    }
+
     // Logout functionality
     document.getElementById('logout-btn').addEventListener('click', function() {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUser');
       localStorage.removeItem('adminLoggedIn');
       window.location.replace('admin-login.html');
     });
@@ -86,16 +112,22 @@
     // Load dashboard data
     async function loadDashboardData() {
       try {
-        // Load stats
-        const statsResponse = await fetch('/api/admin/stats');
+        // Load stats with Bearer token
+        const statsResponse = await fetch('/api/admin/stats', {
+          headers: getAuthHeaders()
+        });
+        if (handleAuthError(statsResponse)) return;
         const stats = await statsResponse.json();
         
         document.getElementById('total-orders').textContent = stats.totalOrders;
         document.getElementById('total-revenue').textContent = `GH₵${stats.totalRevenue.toFixed(2)}`;
         document.getElementById('pending-orders').textContent = stats.pendingOrders;
 
-        // Load orders
-        const ordersResponse = await fetch('/api/admin/orders');
+        // Load orders with Bearer token
+        const ordersResponse = await fetch('/api/admin/orders', {
+          headers: getAuthHeaders()
+        });
+        if (handleAuthError(ordersResponse)) return;
         const orders = await ordersResponse.json();
         
         displayOrders(orders);
@@ -109,26 +141,26 @@
       const tbody = document.getElementById('orders-tbody');
       tbody.innerHTML = '';
 
-      if (orders.length === 0) {
+      if (!Array.isArray(orders) || orders.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="no-orders">No orders found</td></tr>';
         return;
       }
 
       orders.forEach(order => {
         const row = document.createElement('tr');
-        const itemsText = order.items.map(item => `${item.name} (x${item.quantity})`).join(', ');
+        const itemsText = (order.items || []).map(item => `${item.name} (x${item.quantity})`).join(', ');
         
         row.innerHTML = `
-          <td>${order._id.slice(-6)}</td>
+          <td>${order._id ? order._id.slice(-6) : 'N/A'}</td>
           <td>
             <div class="customer-info">
-              <strong>${order.name}</strong><br>
-              <small>${order.email}</small><br>
-              <small>${order.phone}</small>
+              <strong>${order.name || 'Anonymous'}</strong><br>
+              <small>${order.email || ''}</small><br>
+              <small>${order.phone || ''}</small>
             </div>
           </td>
           <td class="items-cell">${itemsText}</td>
-          <td>GH₵${order.total.toFixed(2)}</td>
+          <td>GH₵${(order.total || 0).toFixed(2)}</td>
           <td>
             <select class="status-select" data-order-id="${order._id}" onchange="updateOrderStatus('${order._id}', this.value)">
               <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option>
@@ -153,14 +185,13 @@
       try {
         const response = await fetch(`/api/admin/orders/${orderId}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ status: newStatus })
         });
 
+        if (handleAuthError(response)) return;
+
         if (response.ok) {
-          // Reload dashboard data to reflect changes
           loadDashboardData();
         } else {
           alert('Failed to update order status');

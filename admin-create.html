@@ -37,8 +37,11 @@
   </div>
 
   <script>
-    // Only logged-in admins can access admin creation
-    if (localStorage.getItem('adminLoggedIn') !== 'true') {
+    const adminToken = localStorage.getItem('adminToken');
+
+    // Only logged-in admins with valid session token can access admin creation
+    if (!adminToken) {
+      localStorage.removeItem('adminLoggedIn');
       window.location.replace('admin-login.html');
     }
 
@@ -54,9 +57,18 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + adminToken
           },
           body: JSON.stringify({ username, password })
         });
+
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminUser');
+          localStorage.removeItem('adminLoggedIn');
+          window.location.replace('admin-login.html');
+          return;
+        }
         
         const data = await response.json();
         
@@ -65,7 +77,7 @@
           messageEl.className = 'login-message success';
           document.getElementById('admin-create-form').reset();
         } else {
-          messageEl.textContent = data.message || 'Failed to create admin';
+          messageEl.textContent = data.message || data.error || 'Failed to create admin';
           messageEl.className = 'login-message error';
         }
       } catch (error) {
