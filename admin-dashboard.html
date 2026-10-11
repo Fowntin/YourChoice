@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="admin-dashboard">
+  <div class="admin-dashboard" id="admin-dashboard-container" style="display: none;">
     <!-- Admin Header -->
     <header class="admin-header">
       <div class="admin-header-content">
@@ -68,14 +68,19 @@
 
   <script>
     // Check if admin is logged in
-    if (!localStorage.getItem('adminLoggedIn')) {
-      window.location.href = 'admin-login.html';
+    if (localStorage.getItem('adminLoggedIn') !== 'true') {
+      window.location.replace('admin-login.html');
+    } else {
+      const container = document.getElementById('admin-dashboard-container');
+      if (container) container.style.display = 'block';
+      loadDashboardData();
+      setInterval(loadDashboardData, 30000);
     }
 
     // Logout functionality
     document.getElementById('logout-btn').addEventListener('click', function() {
       localStorage.removeItem('adminLoggedIn');
-      window.location.href = 'admin-login.html';
+      window.location.replace('admin-login.html');
     });
 
     // Load dashboard data
@@ -173,12 +178,6 @@
 
     // Refresh orders
     document.getElementById('refresh-orders').addEventListener('click', loadDashboardData);
-
-    // Load initial data
-    loadDashboardData();
-
-    // Auto-refresh every 30 seconds
-    setInterval(loadDashboardData, 30000);
   </script>
 </body>
 </html> 

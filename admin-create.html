@@ -37,6 +37,11 @@
   </div>
 
   <script>
+    // Only logged-in admins can access admin creation
+    if (localStorage.getItem('adminLoggedIn') !== 'true') {
+      window.location.replace('admin-login.html');
+    }
+
     document.getElementById('admin-create-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       
