@@ -10,6 +10,7 @@ let cart = [];  // Initialize cart as an empty array
 
 function showToast(message, type = 'success') {
   const toast = document.getElementById('toast');
+  if (!toast) return;
   toast.textContent = message;
   toast.className = `toast show ${type}`; // Add type class
 
@@ -24,12 +25,12 @@ function showToast(message, type = 'success') {
 
 function showProcessingState() {
   const cartEl = document.getElementById('cart');
-  cartEl.classList.add('processing');
+  if (cartEl) cartEl.classList.add('processing');
 }
 
 function hideProcessingState() {
   const cartEl = document.getElementById('cart');
-  cartEl.classList.remove('processing');
+  if (cartEl) cartEl.classList.remove('processing');
 }
 
 // ========================================
@@ -38,21 +39,24 @@ function hideProcessingState() {
 
 function showFloatingCart() {
   const floatingBtn = document.getElementById('floating-cart-btn');
+  if (!floatingBtn) return;
   floatingBtn.classList.add('show', 'pulse');
   
   // Remove pulse animation after 3 seconds
   setTimeout(() => {
-    floatingBtn.classList.remove('pulse');
+    if (floatingBtn) floatingBtn.classList.remove('pulse');
   }, 3000);
 }
 
 function hideFloatingCart() {
   const floatingBtn = document.getElementById('floating-cart-btn');
+  if (!floatingBtn) return;
   floatingBtn.classList.remove('show', 'pulse');
 }
 
 function updateFloatingCartCount() {
   const floatingCount = document.getElementById('floating-cart-count');
+  if (!floatingCount) return;
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
   floatingCount.textContent = totalItems;
   
@@ -162,6 +166,10 @@ function removeItem(index) {
 
 function updateCartUI() {
   const elements = getCartElements();
+  if (!elements.items || !elements.count || !elements.total) {
+    saveCartToStorage();
+    return;
+  }
   
   elements.items.innerHTML = '';
   let total = 0;
@@ -177,25 +185,15 @@ function updateCartUI() {
     updateButtonStates();
     
     // Hide the cart modal and overlay if the cart is empty
-    document.getElementById('cart').classList.remove('show');
-    document.getElementById('cart-overlay').classList.remove('show');
+    const cartEl = document.getElementById('cart');
+    const overlay = document.getElementById('cart-overlay');
+    if (cartEl) cartEl.classList.remove('show');
+    if (overlay) overlay.classList.remove('show');
 
     return; // exit early if empty
   }
 
-document.getElementById('checkout-btn').addEventListener('click', () => {
-  if (cart.length === 0) {
-    alert('Your cart is empty.');
-    return;
-  }
-
-  document.getElementById('cart').classList.remove('show');
-  document.getElementById('cart-overlay').classList.remove('show');
-  window.location.href = 'checkout.html';
-});
-
-  
-cart.forEach((item, index) => {
+  cart.forEach((item, index) => {
     total += item.price * item.quantity;
     itemCount += item.quantity;
 
@@ -215,18 +213,18 @@ cart.forEach((item, index) => {
     elements.items.appendChild(li);
   });
 
-      // Update cart totals
-      elements.count.textContent = itemCount;
-      elements.total.textContent = formatPrice(total);
+  // Update cart totals
+  elements.count.textContent = itemCount;
+  elements.total.textContent = formatPrice(total);
 
-      // Update button states
-      updateButtonStates();
-      
-      // Update floating cart
-      updateFloatingCartCount();
-      
-      // Save cart to localStorage
-      saveCartToStorage();
+  // Update button states
+  updateButtonStates();
+  
+  // Update floating cart
+  updateFloatingCartCount();
+  
+  // Save cart to localStorage
+  saveCartToStorage();
 }
 
 // ========================================
@@ -238,8 +236,8 @@ function updateButtonStates() {
   const clearCartBtn = document.getElementById('clear-cart-btn');
   const isEmpty = cart.length === 0;
   
-  checkoutBtn.disabled = isEmpty;
-  clearCartBtn.disabled = isEmpty;
+  if (checkoutBtn) checkoutBtn.disabled = isEmpty;
+  if (clearCartBtn) clearCartBtn.disabled = isEmpty;
 }
 
 // ========================================
@@ -284,6 +282,7 @@ function saveCartToStorage() {
 function toggleCartView() {
   const cartEl = document.getElementById('cart');
   const overlay = document.getElementById('cart-overlay');
+  if (!cartEl || !overlay) return;
   
   if (cartEl.classList.contains('show')) {
     // Closing cart
@@ -305,66 +304,102 @@ function toggleCartView() {
   }
 }
 
-document.querySelector('a[href="#"]').addEventListener('click', toggleCartView);
-
 let lastFocusedElement = null;
 
+function setupCartEventListeners() {
+  const cartToggleLinks = document.querySelectorAll('a[href="#"], a[href="#cart"]');
+  cartToggleLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      toggleCartView();
+    });
+  });
 
-
-document.getElementById('clear-cart-btn').addEventListener('click', () => {
-  if (cart.length === 0) {
-    showToast('Cart is already empty', 'info');
-    return;
+  const clearCartBtn = document.getElementById('clear-cart-btn');
+  if (clearCartBtn) {
+    clearCartBtn.addEventListener('click', () => {
+      if (cart.length === 0) {
+        showToast('Cart is already empty', 'info');
+        return;
+      }
+      
+      if (confirm(`Are you sure you want to clear ${cart.length} item(s) from your cart?`)) {
+        cart = [];
+        updateCartUI();
+        showToast('Cart cleared successfully', 'success');
+      }
+    });
   }
-  
-  if (confirm(`Are you sure you want to clear ${cart.length} item(s) from your cart?`)) {
-    cart = [];
-    updateCartUI();
-    showToast('Cart cleared successfully', 'success');
-  }
-});
 
-// Close cart when clicking the "×" button
-document.getElementById('close-cart').addEventListener('click', toggleCartView);
+  // Close cart when clicking the "×" button
+  const closeCartBtn = document.getElementById('close-cart');
+  if (closeCartBtn) {
+    closeCartBtn.addEventListener('click', toggleCartView);
+  }
+
+  const cartOverlay = document.getElementById('cart-overlay');
+  if (cartOverlay) {
+    cartOverlay.addEventListener('click', toggleCartView);
+  }
+
+  const checkoutBtn = document.getElementById('checkout-btn');
+  if (checkoutBtn) {
+    checkoutBtn.addEventListener('click', () => {
+      if (cart.length === 0) {
+        alert('Your cart is empty.');
+        return;
+      }
+
+      const cartEl = document.getElementById('cart');
+      const overlay = document.getElementById('cart-overlay');
+      if (cartEl) cartEl.classList.remove('show');
+      if (overlay) overlay.classList.remove('show');
+      window.location.href = 'checkout.html';
+    });
+  }
+
+  const cartItems = document.getElementById('cart-items');
+  if (cartItems) {
+    cartItems.addEventListener('click', function(event) {
+      const target = event.target;
+      const index = target.getAttribute('data-index');
+      if (index === null) return;
+      if (target.classList.contains('decrease-qty')) {
+        changeQuantity(Number(index), -1);
+      } else if (target.classList.contains('increase-qty')) {
+        changeQuantity(Number(index), 1);
+      } else if (target.classList.contains('remove-btn')) {
+        removeItem(Number(index));
+      }
+    });
+
+    // Add keyboard support for cart items
+    cartItems.addEventListener('keydown', function(event) {
+      const target = event.target;
+      const index = target.getAttribute('data-index');
+      if (index === null) return;
+      
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        if (target.classList.contains('decrease-qty')) {
+          changeQuantity(Number(index), -1);
+        } else if (target.classList.contains('increase-qty')) {
+          changeQuantity(Number(index), 1);
+        } else if (target.classList.contains('remove-btn')) {
+          removeItem(Number(index));
+        }
+      }
+    });
+  }
+}
 
 // Close cart when pressing Escape
 document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape') {
     const cartEl = document.getElementById('cart');
     const overlay = document.getElementById('cart-overlay');
-    if (cartEl.classList.contains('show')) {
+    if (cartEl && overlay && cartEl.classList.contains('show')) {
       toggleCartView();
-    }
-  }
-});
-
-document.getElementById('cart-overlay').addEventListener('click', toggleCartView);
-
-document.getElementById('cart-items').addEventListener('click', function(event) {
-  const target = event.target;
-  const index = target.getAttribute('data-index');
-  if (target.classList.contains('decrease-qty')) {
-    changeQuantity(Number(index), -1);
-  } else if (target.classList.contains('increase-qty')) {
-    changeQuantity(Number(index), 1);
-  } else if (target.classList.contains('remove-btn')) {
-    removeItem(Number(index));
-  }
-});
-
-// Add keyboard support for cart items
-document.getElementById('cart-items').addEventListener('keydown', function(event) {
-  const target = event.target;
-  const index = target.getAttribute('data-index');
-  
-  if (event.key === 'Enter' || event.key === ' ') {
-    event.preventDefault();
-    if (target.classList.contains('decrease-qty')) {
-      changeQuantity(Number(index), -1);
-    } else if (target.classList.contains('increase-qty')) {
-      changeQuantity(Number(index), 1);
-    } else if (target.classList.contains('remove-btn')) {
-      removeItem(Number(index));
     }
   }
 });
@@ -394,6 +429,9 @@ function pauseAndResumeAutoSlide(delay = 4000) {
 // ========================================
 
 function startAutoSlide() {
+  const track = document.getElementById('trending-carousel');
+  if (!track) return;
+  
   if (autoSlideInterval) {
     clearInterval(autoSlideInterval);
   }
@@ -404,13 +442,14 @@ function startAutoSlide() {
     } else {
       // Seamlessly loop back to first slide
       currentSlide = 0;
-      const track = document.getElementById('trending-carousel');
-      track.style.transition = 'none'; // Disable transition for instant reset
-      track.style.transform = 'translateX(0)';
+      const currentTrack = document.getElementById('trending-carousel');
+      if (!currentTrack) return;
+      currentTrack.style.transition = 'none'; // Disable transition for instant reset
+      currentTrack.style.transform = 'translateX(0)';
       
       // Re-enable transition after a brief moment
       setTimeout(() => {
-        track.style.transition = 'transform 0.2s ease-in-out';
+        if (currentTrack) currentTrack.style.transition = 'transform 0.2s ease-in-out';
       }, 5);
       
       updateCarouselButtons();
@@ -429,12 +468,12 @@ function stopAutoSlide() {
 // Update carousel hover to use pauseAndResumeAutoSlide
 function setupCarouselHover() {
   document.addEventListener('mouseover', (event) => {
-    if (event.target.tagName === 'BUTTON' && event.target.textContent.includes('Add to Cart')) {
+    if (event.target && event.target.tagName === 'BUTTON' && event.target.textContent && event.target.textContent.includes('Add to Cart')) {
       pauseAndResumeAutoSlide();
     }
   });
   document.addEventListener('mouseout', (event) => {
-    if (event.target.tagName === 'BUTTON' && event.target.textContent.includes('Add to Cart')) {
+    if (event.target && event.target.tagName === 'BUTTON' && event.target.textContent && event.target.textContent.includes('Add to Cart')) {
       // No need to do anything here, auto-slide will resume after delay
     }
   });
@@ -446,6 +485,7 @@ function setupCarouselHover() {
 
 function slideCarousel(direction) {
   const track = document.getElementById('trending-carousel');
+  if (!track) return;
   const card = track.querySelector('.product-card');
   const style = window.getComputedStyle(track);
   const gap = parseFloat(style.gap) || 0;
@@ -460,7 +500,7 @@ function slideCarousel(direction) {
       track.style.transition = 'none';
       track.style.transform = 'translateX(0)';
       setTimeout(() => {
-        track.style.transition = 'transform 0.2s ease-in-out';
+        if (track) track.style.transition = 'transform 0.2s ease-in-out';
       }, 5);
       updateCarouselButtons();
       updateCarouselDots();
@@ -476,7 +516,7 @@ function slideCarousel(direction) {
       const translateX = -currentSlide * cardWidth;
       track.style.transform = `translateX(${translateX}px)`;
       setTimeout(() => {
-        track.style.transition = 'transform 0.2s ease-in-out';
+        if (track) track.style.transition = 'transform 0.2s ease-in-out';
       }, 5);
       updateCarouselButtons();
       updateCarouselDots();
@@ -493,17 +533,16 @@ function slideCarousel(direction) {
 
 function updateCarouselButtons() {
   // With infinite scrolling, buttons are never disabled
-  // But we can still update visual states if needed
   const prevBtn = document.querySelector('.prev-btn');
   const nextBtn = document.querySelector('.next-btn');
   
-  // Remove disabled states for infinite scrolling
-  prevBtn.disabled = false;
-  nextBtn.disabled = false;
+  if (prevBtn) prevBtn.disabled = false;
+  if (nextBtn) nextBtn.disabled = false;
 }
 
 function updateCarouselDots() {
   const dots = document.querySelectorAll('.carousel-dot');
+  if (!dots || dots.length === 0) return;
   dots.forEach((dot, index) => {
     // Handle infinite scrolling for dots
     let activeIndex = currentSlide;
@@ -516,6 +555,7 @@ function updateCarouselDots() {
 
 function goToSlide(slideIndex) {
   const track = document.getElementById('trending-carousel');
+  if (!track) return;
   const card = track.querySelector('.product-card');
   const style = window.getComputedStyle(track);
   const gap = parseFloat(style.gap) || 0;
@@ -531,6 +571,7 @@ function goToSlide(slideIndex) {
 
 function createCarouselDots(totalSlides) {
   const dotsContainer = document.getElementById('carousel-dots');
+  if (!dotsContainer) return;
   dotsContainer.innerHTML = '';
   
   for (let i = 0; i <= totalSlides - slidesPerView; i++) {
@@ -611,6 +652,7 @@ function createProductCard(product) {
 
 function displayProducts(productsToShow = products) {
   const productsContainer = document.getElementById('products');
+  if (!productsContainer) return;
   productsContainer.innerHTML = '';
   
   if (productsToShow.length === 0) {
@@ -631,6 +673,7 @@ function displayProducts(productsToShow = products) {
 
 function displayTrendingProducts() {
   const carouselTrack = document.getElementById('trending-carousel');
+  if (!carouselTrack) return;
   const trendingProducts = getTrendingProducts();
   
   carouselTrack.innerHTML = '';
@@ -682,6 +725,8 @@ function displayTrendingProducts() {
 // ========================================
 
 function updateCarouselOnResize() {
+  const track = document.getElementById('trending-carousel');
+  if (!track) return;
   const screenWidth = window.innerWidth;
   let newSlidesPerView = 4;
   
@@ -696,7 +741,6 @@ function updateCarouselOnResize() {
   if (newSlidesPerView !== slidesPerView) {
     slidesPerView = newSlidesPerView;
     currentSlide = 0;
-    const track = document.getElementById('trending-carousel');
     track.style.transform = 'translateX(0)';
     createCarouselDots(totalSlides);
     updateCarouselButtons();
@@ -737,6 +781,7 @@ function scrollToProductsWithOffset() {
 
 function setupCategoryFilter() {
   const filterButtons = document.querySelectorAll('.filter-btn');
+  if (!filterButtons || filterButtons.length === 0) return;
   
   filterButtons.forEach(button => {
     button.addEventListener('click', () => {
@@ -748,11 +793,10 @@ function setupCategoryFilter() {
         filterButtons.forEach(btn => btn.classList.remove('active'));
         button.classList.add('active');
         displayProducts();
-        // updateCategoryLabel(); // Removed as per edit hint
       } else {
         // Remove 'all' from active state
         const allButton = document.querySelector('.filter-btn[data-category="all"]');
-        allButton.classList.remove('active');
+        if (allButton) allButton.classList.remove('active');
         
         // Toggle the clicked category
         if (selectedCategories.has(category)) {
@@ -765,22 +809,19 @@ function setupCategoryFilter() {
         
         // If no categories selected, show all products
         if (selectedCategories.size === 0) {
-          allButton.classList.add('active');
+          if (allButton) allButton.classList.add('active');
           displayProducts();
         } else {
           // Filter products by selected categories
           const filteredProducts = getProductsByMultipleCategories(Array.from(selectedCategories));
           displayProducts(filteredProducts);
         }
-        // updateCategoryLabel(); // Removed as per edit hint
       }
       // Use offset scroll for better UX
       scrollToProductsWithOffset();
     });
   });
 }
-
-
 
 function getProductsByMultipleCategories(categories) {
   return products.filter(product => categories.includes(product.category));
@@ -793,15 +834,16 @@ function getProductsByMultipleCategories(categories) {
 function toggleCategories() {
   const categoryFilter = document.getElementById('category-filter');
   const floatingToggleBtn = document.getElementById('floating-toggle-btn');
+  if (!categoryFilter) return;
   const isHidden = categoryFilter.classList.contains('hidden');
   
   if (isHidden) {
     categoryFilter.classList.remove('hidden');
-    floatingToggleBtn.classList.remove('show');
+    if (floatingToggleBtn) floatingToggleBtn.classList.remove('show');
     localStorage.setItem('categoriesHidden', 'false');
   } else {
     categoryFilter.classList.add('hidden');
-    floatingToggleBtn.classList.add('show');
+    if (floatingToggleBtn) floatingToggleBtn.classList.add('show');
     localStorage.setItem('categoriesHidden', 'true');
   }
 }
@@ -809,11 +851,12 @@ function toggleCategories() {
 function initializeCategoryVisibility() {
   const categoryFilter = document.getElementById('category-filter');
   const floatingToggleBtn = document.getElementById('floating-toggle-btn');
+  if (!categoryFilter) return;
   const categoriesHidden = localStorage.getItem('categoriesHidden');
   
   if (categoriesHidden === 'true') {
     categoryFilter.classList.add('hidden');
-    floatingToggleBtn.classList.add('show');
+    if (floatingToggleBtn) floatingToggleBtn.classList.add('show');
   }
 }
 
@@ -822,6 +865,8 @@ function initializeCategoryVisibility() {
 // ========================================
 
 window.addEventListener('DOMContentLoaded', () => {
+  setupCartEventListeners();
+
   // Load cart from localStorage
   try {
     const savedCart = localStorage.getItem('cart');
@@ -838,13 +883,13 @@ window.addEventListener('DOMContentLoaded', () => {
           item.quantity > 0
         );
         
-            cart = validCart;
-    updateCartUI();
-    updateFloatingCartCount(); // Initialize floating cart
-    
-    if (validCart.length !== parsedCart.length) {
-      showToast(`${parsedCart.length - validCart.length} invalid items were removed from your cart`, 'warning');
-    }
+        cart = validCart;
+        updateCartUI();
+        updateFloatingCartCount(); // Initialize floating cart
+        
+        if (validCart.length !== parsedCart.length) {
+          showToast(`${parsedCart.length - validCart.length} invalid items were removed from your cart`, 'warning');
+        }
       } else {
         throw new Error('Cart is not an array');
       }
@@ -857,24 +902,31 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   
   // Display products
-  displayProducts();
-  displayTrendingProducts();
+  if (document.getElementById('products')) {
+    displayProducts();
+  }
+  if (document.getElementById('trending-carousel')) {
+    displayTrendingProducts();
+  }
   
   // Setup category filtering
-  setupCategoryFilter();
-  initializeCategoryVisibility(); // Initialize category filter visibility
-  // updateCategoryLabel(); // Removed as per edit hint
+  if (document.getElementById('category-filter')) {
+    setupCategoryFilter();
+    initializeCategoryVisibility();
+  }
   
   // Setup responsive carousel
-  window.addEventListener('resize', updateCarouselOnResize);
-  setupCarouselHover(); // Setup hover for auto-slide
-  startAutoSlide(); // Start auto-slide
+  if (document.getElementById('trending-carousel')) {
+    window.addEventListener('resize', updateCarouselOnResize);
+    setupCarouselHover(); // Setup hover for auto-slide
+    startAutoSlide(); // Start auto-slide
 
-  // Stop auto-slide when carousel navigation buttons are clicked
-  const prevBtn = document.querySelector('.carousel-btn.prev-btn');
-  const nextBtn = document.querySelector('.carousel-btn.next-btn');
-  if (prevBtn) prevBtn.addEventListener('click', () => pauseAndResumeAutoSlide());
-  if (nextBtn) nextBtn.addEventListener('click', () => pauseAndResumeAutoSlide());
+    // Stop auto-slide when carousel navigation buttons are clicked
+    const prevBtn = document.querySelector('.carousel-btn.prev-btn');
+    const nextBtn = document.querySelector('.carousel-btn.next-btn');
+    if (prevBtn) prevBtn.addEventListener('click', () => pauseAndResumeAutoSlide());
+    if (nextBtn) nextBtn.addEventListener('click', () => pauseAndResumeAutoSlide());
+  }
 });
 
 // Helper function to get cart elements
