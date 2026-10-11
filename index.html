@@ -12,12 +12,14 @@
 <body>
 
 <header class="navbar">
-    <div class="logo">YourChoice</div>
-    <nav>
+  <div class="logo">YourChoice</div>
+  
+  <!-- Desktop Navigation -->
+  <nav class="desktop-nav">
     <ul>
       <li><a href="#hero">Home</a></li>
       <li><a href="#products">Shop</a></li>
-      <li><a href="#"> 🛒 Cart <span id="cart-count" class="cart-count">0</span></a></li>
+      <li><a href="#" class="nav-cart-link">🛒 Cart <span id="cart-count" class="cart-count">0</span></a></li>
       <li><a href="#contact">Contact</a></li>
       <li id="auth-links">
         <a href="login.html">Login</a> / <a href="register.html">Register</a>
@@ -26,8 +28,50 @@
         <span id="user-name"></span> | <a href="#" id="logout-link">Logout</a>
       </li>
     </ul>
-    </nav>
+  </nav>
+
+  <!-- Mobile Action Buttons -->
+  <div class="mobile-actions">
+    <button class="mobile-cart-btn" id="mobile-cart-trigger" aria-label="Open Shopping Cart">
+      🛒<span class="cart-count mobile-cart-count">0</span>
+    </button>
+    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Open Navigation Menu" aria-expanded="false">
+      <span class="hamburger-bar"></span>
+      <span class="hamburger-bar"></span>
+      <span class="hamburger-bar"></span>
+    </button>
+  </div>
 </header>
+
+<!-- Mobile Navigation Drawer & Backdrop -->
+<div id="mobile-nav-backdrop" class="mobile-nav-backdrop"></div>
+<aside id="mobile-nav-drawer" class="mobile-nav-drawer" aria-label="Mobile Navigation Drawer">
+  <div class="drawer-header">
+    <span class="drawer-logo">YourChoice</span>
+    <button id="close-drawer-btn" class="close-drawer-btn" aria-label="Close menu">&times;</button>
+  </div>
+  <nav class="drawer-nav">
+    <ul>
+      <li><a href="#hero" class="drawer-link"><span class="drawer-icon">🏠</span> Home</a></li>
+      <li><a href="#products" class="drawer-link"><span class="drawer-icon">🛍️</span> Shop Products</a></li>
+      <li><a href="#" class="drawer-link drawer-cart-link" id="drawer-cart-link"><span class="drawer-icon">🛒</span> Shopping Cart (<span class="drawer-cart-count">0</span>)</a></li>
+      <li><a href="#contact" class="drawer-link"><span class="drawer-icon">📞</span> Contact Us</a></li>
+    </ul>
+  </nav>
+  <div class="drawer-footer">
+    <div id="drawer-auth-links" class="drawer-auth-links">
+      <a href="login.html" class="drawer-btn drawer-btn-secondary">Log In</a>
+      <a href="register.html" class="drawer-btn drawer-btn-primary">Register</a>
+    </div>
+    <div id="drawer-user-info" class="drawer-user-info" style="display: none;">
+      <p class="drawer-user-greeting">Signed in as <strong id="drawer-user-name">User</strong></p>
+      <button id="drawer-logout-btn" class="drawer-btn drawer-btn-logout">Log Out</button>
+    </div>
+    <div class="drawer-admin-link">
+      <a href="admin-login.html">🔒 Admin Portal</a>
+    </div>
+  </div>
+</aside>
 
   <section class="hero">
     <h1>Welcome to YourChoice</h1>
@@ -100,18 +144,28 @@
 <div id="cart-overlay" class="cart-overlay"></div>
 
 <div id="cart" class="cart-modal">
-  <button id="close-cart" class="close-cart">&times;</button> 
-  <h2>Your Cart</h2>
-  <ul id="cart-items"></ul>
-  <p>Total: GH₵<span id="cart-total">0.00</span></p>
-  <button id="checkout-btn">Proceed to Checkout</button>
-  <button id="clear-cart-btn" class="clear-cart">Clear Cart</button>
+  <div class="sheet-drag-handle" aria-hidden="true"></div>
+  <div class="cart-modal-header">
+    <h2>Your Cart</h2>
+    <button id="close-cart" class="close-cart" aria-label="Close cart">&times;</button> 
+  </div>
+  <ul id="cart-items" class="cart-items-list"></ul>
+  <div class="cart-modal-footer">
+    <div class="cart-total-row">
+      <span class="total-label">Subtotal:</span>
+      <span class="total-val">GH₵<span id="cart-total">0.00</span></span>
+    </div>
+    <div class="cart-modal-actions">
+      <button id="checkout-btn" class="checkout-btn">Proceed to Checkout</button>
+      <button id="clear-cart-btn" class="clear-cart">Clear Cart</button>
+    </div>
+  </div>
 </div>
 
   <script src="src/products.js"></script>
   <script src="script.js"></script>
   <script>
-    // Check user authentication status
+    // Check user authentication status (syncs desktop and mobile drawer)
     function checkAuthStatus() {
       const userLoggedIn = localStorage.getItem('userLoggedIn');
       const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -119,25 +173,42 @@
       const authLinks = document.getElementById('auth-links');
       const userInfo = document.getElementById('user-info');
       const userName = document.getElementById('user-name');
+
+      const drawerAuth = document.getElementById('drawer-auth-links');
+      const drawerUser = document.getElementById('drawer-user-info');
+      const drawerName = document.getElementById('drawer-user-name');
       
       if (userLoggedIn && user.name) {
-        authLinks.style.display = 'none';
-        userInfo.style.display = 'inline';
-        userName.textContent = user.name;
+        if (authLinks) authLinks.style.display = 'none';
+        if (userInfo) userInfo.style.display = 'inline';
+        if (userName) userName.textContent = user.name;
+
+        if (drawerAuth) drawerAuth.style.display = 'none';
+        if (drawerUser) drawerUser.style.display = 'block';
+        if (drawerName) drawerName.textContent = user.name;
       } else {
-        authLinks.style.display = 'inline';
-        userInfo.style.display = 'none';
+        if (authLinks) authLinks.style.display = 'inline';
+        if (userInfo) userInfo.style.display = 'none';
+
+        if (drawerAuth) drawerAuth.style.display = 'grid';
+        if (drawerUser) drawerUser.style.display = 'none';
       }
     }
     
-    // Handle logout
-    document.getElementById('logout-link').addEventListener('click', function(e) {
-      e.preventDefault();
+    // Handle logout for both desktop and mobile drawer
+    function handleLogout(e) {
+      if (e) e.preventDefault();
       localStorage.removeItem('userLoggedIn');
       localStorage.removeItem('user');
       checkAuthStatus();
       window.location.reload();
-    });
+    }
+
+    const logoutLink = document.getElementById('logout-link');
+    if (logoutLink) logoutLink.addEventListener('click', handleLogout);
+
+    const drawerLogoutBtn = document.getElementById('drawer-logout-btn');
+    if (drawerLogoutBtn) drawerLogoutBtn.addEventListener('click', handleLogout);
     
     // Check auth status on page load
     checkAuthStatus();
