@@ -114,7 +114,7 @@ function authenticateAdmin(req, res, next) {
     }
     req.admin = decoded;
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ error: 'Unauthorized: Session expired or invalid token' });
   }
 }
@@ -417,7 +417,7 @@ app.get('/api/admin/orders', authenticateAdmin, async (req, res) => {
       return res.json(orders);
     }
     res.json(inMemory.orders);
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to fetch orders' });
   }
 });
@@ -441,7 +441,7 @@ app.put('/api/admin/orders/:id', authenticateAdmin, async (req, res) => {
     }
     order.status = status;
     res.json(order);
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to update order' });
   }
 });
@@ -470,7 +470,7 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
       totalRevenue,
       pendingOrders
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
