@@ -181,6 +181,7 @@ function updateCartUI() {
     elements.count.textContent = '0';
     elements.total.textContent = formatPrice(0);
     updateCartCountBadges(0);
+    updateFloatingCartCount();
     saveCartToStorage();
     
     // Update button states
@@ -344,17 +345,17 @@ function setupCartEventListeners() {
 
   const clearCartBtn = document.getElementById('clear-cart-btn');
   if (clearCartBtn) {
-    clearCartBtn.addEventListener('click', () => {
-      if (cart.length === 0) {
+    clearCartBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!cart || cart.length === 0) {
         showToast('Cart is already empty', 'info');
         return;
       }
       
-      if (confirm(`Are you sure you want to clear ${cart.length} item(s) from your cart?`)) {
-        cart = [];
-        updateCartUI();
-        showToast('Cart cleared successfully', 'success');
-      }
+      const itemCount = cart.reduce((total, item) => total + (item.quantity || 1), 0);
+      cart = [];
+      updateCartUI();
+      showToast(`Cleared ${itemCount} item${itemCount === 1 ? '' : 's'} from your cart`, 'success');
     });
   }
 
@@ -372,8 +373,8 @@ function setupCartEventListeners() {
   const checkoutBtn = document.getElementById('checkout-btn');
   if (checkoutBtn) {
     checkoutBtn.addEventListener('click', () => {
-      if (cart.length === 0) {
-        alert('Your cart is empty.');
+      if (!cart || cart.length === 0) {
+        showToast('Your cart is empty', 'warning');
         return;
       }
 
