@@ -4,7 +4,11 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-require('dotenv').config({ override: true });
+const dotenv = require('dotenv');
+
+// Load environment variables from both backend/.env and root .env
+dotenv.config({ path: path.resolve(__dirname, '.env'), override: true });
+dotenv.config({ path: path.resolve(__dirname, '..', '.env'), override: true });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,7 +25,8 @@ const inMemory = {
   admins: [
     {
       username: process.env.ADMIN_USERNAME || 'admin',
-      password: bcrypt.hashSync(process.env.ADMIN_INITIAL_PASSWORD || 'admin123', 10)
+      password: bcrypt.hashSync(process.env.ADMIN_INITIAL_PASSWORD || 'admin123', 10),
+      createdAt: new Date().toISOString()
     }
   ],
   orders: [
@@ -80,6 +85,7 @@ const Order = mongoose.model('Order', orderSchema);
 const adminSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
 });
 
 const Admin = mongoose.model('Admin', adminSchema);
@@ -379,7 +385,11 @@ app.post('/api/admin/create', authenticateAdmin, async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {
-      return res.status(400).json({ success: false, message: 'Username and password required' });
+      return res.status(400).json({ success: false, message: 'New admin username and password required' });
+    }
+    const cleanUsername = String(username).trim();
+    if (!cleanUsername) {
+      return res.status(400).json({ success: false, message: 'Username cannot be blank' });
     }
     if (password.length < 6) {
       return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
@@ -388,24 +398,52 @@ app.post('/api/admin/create', authenticateAdmin, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     if (isMongoConnected) {
-      const existingAdmin = await Admin.findOne({ username });
+      const existingAdmin = await Admin.findOne({ username: cleanUsername });
       if (existingAdmin) {
-        return res.status(400).json({ success: false, message: 'Admin already exists' });
+        return res.status(400).json({ success: false, message: 'An admin with this username already exists' });
       }
-      const admin = new Admin({ username, password: hashedPassword });
+      const admin = new Admin({ username: cleanUsername, password: hashedPassword, createdAt: new Date() });
       await admin.save();
-      return res.status(201).json({ success: true, message: 'Admin created successfully' });
+      return res.status(201).json({
+        success: true,
+        message: 'Administrator created successfully',
+        admin: { username: admin.username, createdAt: admin.createdAt }
+      });
     }
 
     // In-memory fallback
-    if (inMemory.admins.some(a => a.username === username)) {
-      return res.status(400).json({ success: false, message: 'Admin already exists' });
+    if (inMemory.admins.some(a => a.username.toLowerCase() === cleanUsername.toLowerCase())) {
+      return res.status(400).json({ success: false, message: 'An admin with this username already exists' });
     }
-    inMemory.admins.push({ username, password: hashedPassword });
-    res.status(201).json({ success: true, message: 'Admin created successfully' });
+    const newAdmin = { username: cleanUsername, password: hashedPassword, createdAt: new Date().toISOString() };
+    inMemory.admins.push(newAdmin);
+    res.status(201).json({
+      success: true,
+      message: 'Administrator created successfully',
+      admin: { username: newAdmin.username, createdAt: newAdmin.createdAt }
+    });
   } catch (err) {
     console.error('Admin creation error:', err);
-    res.status(500).json({ success: false, message: 'Failed to create admin' });
+    res.status(500).json({ success: false, message: 'Failed to create administrator' });
+  }
+});
+
+// Get all admin accounts (Protected: authenticated admins only, excludes passwords)
+app.get('/api/admin/admins', authenticateAdmin, async (req, res) => {
+  try {
+    if (isMongoConnected) {
+      const admins = await Admin.find({}, { password: 0 }).sort({ createdAt: -1 });
+      return res.json(admins);
+    }
+    // In-memory fallback (sanitized: never send password hashes)
+    const sanitizedAdmins = inMemory.admins.map(a => ({
+      username: a.username,
+      createdAt: a.createdAt || new Date().toISOString()
+    }));
+    res.json(sanitizedAdmins);
+  } catch (err) {
+    console.error('Error fetching admin accounts:', err);
+    res.status(500).json({ error: 'Failed to fetch admin accounts' });
   }
 });
 
@@ -477,6 +515,15 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
 
 // Serve static frontend files from parent directory
 app.use(express.static(rootDir, { index: false }));
+
+// Health check route exposing connection and database status
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    database: isMongoConnected ? 'connected' : 'in-memory-fallback',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Root route: serves index.html for web requests, and health text for API/tests
 app.get('/', (req, res) => {
