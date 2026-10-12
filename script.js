@@ -68,11 +68,12 @@ function updateFloatingCartCount() {
   }
 }
 
-// ========================================
-// ADD TO CART FUNCTION
-// ========================================
+function addToCart(productOrId) {
+  let product = productOrId;
+  if (typeof productOrId === 'string' && typeof products !== 'undefined') {
+    product = products.find(p => p.id === productOrId);
+  }
 
-function addToCart(product) {
   // Validate product data
   if (!product || !product.name || typeof product.price !== 'number' || product.price <= 0) {
     showToast('Invalid product data', 'error');
@@ -508,9 +509,10 @@ let currentSlide = 0;
 let totalSlides = 0;
 let slidesPerView = 4;
 let autoSlideInterval = null;
-let autoSlideDelay = 2000; // 2 seconds for faster continuous sliding
-
+let autoSlideDelay = 3500; // Relaxed 3.5 seconds
 let autoSlideResumeTimeout = null;
+let isCarouselTransitioning = false;
+let trackTransitionListenerAttached = false;
 
 function pauseAndResumeAutoSlide(delay = 4000) {
   stopAutoSlide();
@@ -526,31 +528,12 @@ function pauseAndResumeAutoSlide(delay = 4000) {
 
 function startAutoSlide() {
   const track = document.getElementById('trending-carousel');
-  if (!track) return;
+  if (!track || totalSlides <= slidesPerView) return;
   
-  if (autoSlideInterval) {
-    clearInterval(autoSlideInterval);
-  }
+  stopAutoSlide();
   
   autoSlideInterval = setInterval(() => {
-    if (currentSlide < totalSlides - slidesPerView) {
-      slideCarousel('next');
-    } else {
-      // Seamlessly loop back to first slide
-      currentSlide = 0;
-      const currentTrack = document.getElementById('trending-carousel');
-      if (!currentTrack) return;
-      currentTrack.style.transition = 'none'; // Disable transition for instant reset
-      currentTrack.style.transform = 'translateX(0)';
-      
-      // Re-enable transition after a brief moment
-      setTimeout(() => {
-        if (currentTrack) currentTrack.style.transition = 'transform 0.2s ease-in-out';
-      }, 5);
-      
-      updateCarouselButtons();
-      updateCarouselDots();
-    }
+    slideCarousel('next');
   }, autoSlideDelay);
 }
 
@@ -561,118 +544,148 @@ function stopAutoSlide() {
   }
 }
 
-// Update carousel hover to use pauseAndResumeAutoSlide
+// Pause auto-slide when hovering or interacting with the carousel
 function setupCarouselHover() {
-  document.addEventListener('mouseover', (event) => {
-    if (event.target && event.target.tagName === 'BUTTON' && event.target.textContent && event.target.textContent.includes('Add to Cart')) {
-      pauseAndResumeAutoSlide();
-    }
+  const container = document.querySelector('.carousel-container');
+  if (!container) return;
+
+  container.addEventListener('mouseenter', () => {
+    stopAutoSlide();
   });
-  document.addEventListener('mouseout', (event) => {
-    if (event.target && event.target.tagName === 'BUTTON' && event.target.textContent && event.target.textContent.includes('Add to Cart')) {
-      // No need to do anything here, auto-slide will resume after delay
-    }
+
+  container.addEventListener('mouseleave', () => {
+    startAutoSlide();
   });
+
+  container.addEventListener('touchstart', () => {
+    stopAutoSlide();
+  }, { passive: true });
+
+  container.addEventListener('touchend', () => {
+    pauseAndResumeAutoSlide(3000);
+  }, { passive: true });
 }
 
 // ========================================
 // CAROUSEL FUNCTIONS
 // ========================================
 
-function slideCarousel(direction) {
+function getCarouselCardWidth() {
   const track = document.getElementById('trending-carousel');
-  if (!track) return;
+  if (!track) return 312;
   const card = track.querySelector('.product-card');
   const style = window.getComputedStyle(track);
   const gap = parseFloat(style.gap) || 0;
-  const cardWidth = card ? card.offsetWidth + gap : 312; // fallback to 312 if not found
+  return card ? card.offsetWidth + gap : 312;
+}
 
+function setTrackPosition(index, animate = true) {
+  const track = document.getElementById('trending-carousel');
+  if (!track) return;
+  const cardWidth = getCarouselCardWidth();
+  if (animate) {
+    track.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+  } else {
+    track.style.transition = 'none';
+  }
+  track.style.transform = `translateX(-${index * cardWidth}px)`;
+}
+
+function slideCarousel(direction) {
+  const track = document.getElementById('trending-carousel');
+  if (!track || totalSlides <= slidesPerView) return;
+  if (isCarouselTransitioning) return;
+
+  isCarouselTransitioning = true;
   if (direction === 'next') {
-    if (currentSlide < totalSlides - slidesPerView) {
-      currentSlide++;
-    } else {
-      // Seamlessly loop to first slide
-      currentSlide = 0;
-      track.style.transition = 'none';
-      track.style.transform = 'translateX(0)';
-      setTimeout(() => {
-        if (track) track.style.transition = 'transform 0.2s ease-in-out';
-      }, 5);
-      updateCarouselButtons();
-      updateCarouselDots();
-      return;
-    }
+    currentSlide++;
   } else if (direction === 'prev') {
-    if (currentSlide > 0) {
-      currentSlide--;
-    } else {
-      // Seamlessly loop to last slide
-      currentSlide = totalSlides - slidesPerView;
-      track.style.transition = 'none';
-      const translateX = -currentSlide * cardWidth;
-      track.style.transform = `translateX(${translateX}px)`;
-      setTimeout(() => {
-        if (track) track.style.transition = 'transform 0.2s ease-in-out';
-      }, 5);
-      updateCarouselButtons();
-      updateCarouselDots();
-      return;
-    }
+    currentSlide--;
   }
 
-  const translateX = -currentSlide * cardWidth;
-  track.style.transform = `translateX(${translateX}px)`;
-
-  updateCarouselButtons();
+  setTrackPosition(currentSlide, true);
   updateCarouselDots();
+  pauseAndResumeAutoSlide(4000);
+
+  // Fallback timeout in case transitionend event does not fire
+  setTimeout(() => {
+    isCarouselTransitioning = false;
+  }, 550);
+}
+
+function setupTrackTransitionListener() {
+  const track = document.getElementById('trending-carousel');
+  if (!track || trackTransitionListenerAttached) return;
+  trackTransitionListenerAttached = true;
+
+  track.addEventListener('transitionend', (e) => {
+    if (e.target !== track || e.propertyName !== 'transform') return;
+
+    isCarouselTransitioning = false;
+    if (totalSlides <= slidesPerView) return;
+
+    const bufferCount = slidesPerView;
+    // Seamless wrap forward (cloned head -> real items start)
+    if (currentSlide >= bufferCount + totalSlides) {
+      currentSlide = currentSlide - totalSlides;
+      setTrackPosition(currentSlide, false);
+      void track.offsetHeight; // Force layout reflow
+      track.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+    } 
+    // Seamless wrap backward (cloned tail -> real items end)
+    else if (currentSlide < bufferCount) {
+      currentSlide = currentSlide + totalSlides;
+      setTrackPosition(currentSlide, false);
+      void track.offsetHeight; // Force layout reflow
+      track.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+    }
+
+    updateCarouselDots();
+  });
 }
 
 function updateCarouselButtons() {
-  // With infinite scrolling, buttons are never disabled
   const prevBtn = document.querySelector('.prev-btn');
   const nextBtn = document.querySelector('.next-btn');
   
-  if (prevBtn) prevBtn.disabled = false;
-  if (nextBtn) nextBtn.disabled = false;
+  if (prevBtn) prevBtn.disabled = totalSlides <= slidesPerView;
+  if (nextBtn) nextBtn.disabled = totalSlides <= slidesPerView;
 }
 
 function updateCarouselDots() {
   const dots = document.querySelectorAll('.carousel-dot');
-  if (!dots || dots.length === 0) return;
+  if (!dots || dots.length === 0 || totalSlides === 0) return;
+
+  const bufferCount = totalSlides > slidesPerView ? slidesPerView : 0;
+  const activeIndex = ((currentSlide - bufferCount) % totalSlides + totalSlides) % totalSlides;
+
   dots.forEach((dot, index) => {
-    // Handle infinite scrolling for dots
-    let activeIndex = currentSlide;
-    if (activeIndex < 0) activeIndex = 0;
-    if (activeIndex >= dots.length) activeIndex = dots.length - 1;
-    
     dot.classList.toggle('active', index === activeIndex);
   });
 }
 
 function goToSlide(slideIndex) {
   const track = document.getElementById('trending-carousel');
-  if (!track) return;
-  const card = track.querySelector('.product-card');
-  const style = window.getComputedStyle(track);
-  const gap = parseFloat(style.gap) || 0;
-  const cardWidth = card ? card.offsetWidth + gap : 312;
+  if (!track || totalSlides <= slidesPerView) return;
+  if (isCarouselTransitioning) return;
 
-  currentSlide = slideIndex;
-  const translateX = -currentSlide * cardWidth;
-  track.style.transform = `translateX(${translateX}px)`;
-
-  updateCarouselButtons();
+  pauseAndResumeAutoSlide(4000);
+  const bufferCount = slidesPerView;
+  currentSlide = bufferCount + slideIndex;
+  setTrackPosition(currentSlide, true);
   updateCarouselDots();
 }
 
-function createCarouselDots(totalSlides) {
+function createCarouselDots(total) {
   const dotsContainer = document.getElementById('carousel-dots');
   if (!dotsContainer) return;
   dotsContainer.innerHTML = '';
+  if (total <= 1) return;
   
-  for (let i = 0; i <= totalSlides - slidesPerView; i++) {
+  for (let i = 0; i < total; i++) {
     const dot = document.createElement('div');
     dot.className = `carousel-dot ${i === 0 ? 'active' : ''}`;
+    dot.setAttribute('aria-label', `Go to slide ${i + 1}`);
     dot.addEventListener('click', () => goToSlide(i));
     dotsContainer.appendChild(dot);
   }
@@ -733,29 +746,37 @@ function createProductCard(product) {
     ${featuresDisplay}
     ${priceDisplay}
     ${stockInfo}
-    <button onclick="addToCart({
-      id: '${product.id}',
-      name: '${product.name}',
-      price: ${product.price},
-      sku: '${product.sku}'
-    })">
+    <button type="button" class="add-to-cart-btn" data-product-id="${product.id}">
       Add to Cart
     </button>
   `;
+  
+  // Attach event listener directly to avoid inline quote syntax errors
+  const addBtn = card.querySelector('.add-to-cart-btn');
+  if (addBtn) {
+    addBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      addToCart(product);
+    });
+  }
   
   return card;
 }
 
 function displayProducts(productsToShow = products) {
-  const productsContainer = document.getElementById('products');
-  if (!productsContainer) return;
-  productsContainer.innerHTML = '';
+  const gridContainer = document.getElementById('products-grid') || document.getElementById('products');
+  const countBadge = document.getElementById('products-count-badge');
+  if (countBadge) {
+    countBadge.textContent = `${productsToShow.length} item${productsToShow.length === 1 ? '' : 's'}`;
+  }
+  if (!gridContainer) return;
+  gridContainer.innerHTML = '';
   
   if (productsToShow.length === 0) {
-    productsContainer.innerHTML = `
-      <div style="text-align: center; padding: 3rem; color: #666;">
-        <h3>No products found</h3>
-        <p>Try selecting a different category or check back later.</p>
+    gridContainer.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: #666;">
+        <h3 style="font-size: 1.2rem; color: #333; margin-bottom: 0.5rem;">No products found</h3>
+        <p style="font-size: 0.95rem;">Try selecting a different category tab above.</p>
       </div>
     `;
     return;
@@ -763,7 +784,7 @@ function displayProducts(productsToShow = products) {
   
   productsToShow.forEach(product => {
     const card = createProductCard(product);
-    productsContainer.appendChild(card);
+    gridContainer.appendChild(card);
   });
 }
 
@@ -783,14 +804,7 @@ function displayTrendingProducts() {
     return;
   }
   
-  trendingProducts.forEach(product => {
-    const card = createProductCard(product);
-    carouselTrack.appendChild(card);
-  });
-  
-  // Setup carousel
   totalSlides = trendingProducts.length;
-  currentSlide = 0;
   
   // Calculate slides per view based on screen size
   const screenWidth = window.innerWidth;
@@ -803,15 +817,54 @@ function displayTrendingProducts() {
   } else {
     slidesPerView = 4;
   }
+
+  // If there are more trending products than visible slides, build infinite cloned buffer
+  if (totalSlides > slidesPerView) {
+    const bufferCount = slidesPerView;
+
+    // 1. Prepend clones of the tail items
+    for (let i = totalSlides - bufferCount; i < totalSlides; i++) {
+      const card = createProductCard(trendingProducts[i]);
+      card.classList.add('carousel-clone');
+      card.setAttribute('aria-hidden', 'true');
+      carouselTrack.appendChild(card);
+    }
+
+    // 2. Genuine products
+    trendingProducts.forEach(product => {
+      const card = createProductCard(product);
+      carouselTrack.appendChild(card);
+    });
+
+    // 3. Append clones of the head items
+    for (let i = 0; i < bufferCount; i++) {
+      const card = createProductCard(trendingProducts[i]);
+      card.classList.add('carousel-clone');
+      card.setAttribute('aria-hidden', 'true');
+      carouselTrack.appendChild(card);
+    }
+
+    currentSlide = bufferCount;
+  } else {
+    trendingProducts.forEach(product => {
+      const card = createProductCard(product);
+      carouselTrack.appendChild(card);
+    });
+    currentSlide = 0;
+  }
   
   createCarouselDots(totalSlides);
   updateCarouselButtons();
   
-  // Reset carousel position
-  carouselTrack.style.transform = 'translateX(0)';
+  // Position track at genuine first slide without animation
+  setTrackPosition(currentSlide, false);
+  updateCarouselDots();
+
+  // Attach transitionend listener for seamless wrapping
+  setupTrackTransitionListener();
   
   // Start auto-sliding if there are enough products
-  if (trendingProducts.length > slidesPerView) {
+  if (totalSlides > slidesPerView) {
     startAutoSlide();
   }
 }
@@ -820,27 +873,30 @@ function displayTrendingProducts() {
 // RESPONSIVE CAROUSEL
 // ========================================
 
+let carouselResizeDebounce = null;
 function updateCarouselOnResize() {
   const track = document.getElementById('trending-carousel');
   if (!track) return;
-  const screenWidth = window.innerWidth;
-  let newSlidesPerView = 4;
   
-  if (screenWidth < 768) {
-    newSlidesPerView = 1;
-  } else if (screenWidth < 1024) {
-    newSlidesPerView = 2;
-  } else if (screenWidth < 1200) {
-    newSlidesPerView = 3;
-  }
-  
-  if (newSlidesPerView !== slidesPerView) {
-    slidesPerView = newSlidesPerView;
-    currentSlide = 0;
-    track.style.transform = 'translateX(0)';
-    createCarouselDots(totalSlides);
-    updateCarouselButtons();
-  }
+  clearTimeout(carouselResizeDebounce);
+  carouselResizeDebounce = setTimeout(() => {
+    const screenWidth = window.innerWidth;
+    let newSlidesPerView = 4;
+    
+    if (screenWidth < 768) {
+      newSlidesPerView = 1;
+    } else if (screenWidth < 1024) {
+      newSlidesPerView = 2;
+    } else if (screenWidth < 1200) {
+      newSlidesPerView = 3;
+    }
+    
+    if (newSlidesPerView !== slidesPerView) {
+      displayTrendingProducts();
+    } else {
+      setTrackPosition(currentSlide, false);
+    }
+  }, 100);
 }
 
 // ========================================
@@ -860,21 +916,6 @@ function getCategoryDisplayName(id) {
   return id.charAt(0).toUpperCase() + id.slice(1);
 }
 
-function scrollToProductsWithOffset() {
-  const productsSection = document.getElementById('products');
-  const navbar = document.querySelector('.navbar');
-  const categoryBar = document.getElementById('category-filter');
-  const label = document.getElementById('category-label');
-  let offset = 0;
-  if (navbar) offset += navbar.offsetHeight;
-  if (categoryBar) offset += categoryBar.offsetHeight;
-  if (label) offset += label.offsetHeight;
-  if (productsSection) {
-    const top = productsSection.getBoundingClientRect().top + window.pageYOffset - offset;
-    window.scrollTo({ top, behavior: 'smooth' });
-  }
-}
-
 function setupCategoryFilter() {
   const filterButtons = document.querySelectorAll('.filter-btn');
   if (!filterButtons || filterButtons.length === 0) return;
@@ -883,77 +924,21 @@ function setupCategoryFilter() {
     button.addEventListener('click', () => {
       const category = button.getAttribute('data-category');
       
+      // Update active pill indicator
+      filterButtons.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+
       if (category === 'all') {
-        // Clear all selections and show all products
         selectedCategories.clear();
-        filterButtons.forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-        displayProducts();
+        displayProducts(products);
       } else {
-        // Remove 'all' from active state
-        const allButton = document.querySelector('.filter-btn[data-category="all"]');
-        if (allButton) allButton.classList.remove('active');
-        
-        // Toggle the clicked category
-        if (selectedCategories.has(category)) {
-          selectedCategories.delete(category);
-          button.classList.remove('active');
-        } else {
-          selectedCategories.add(category);
-          button.classList.add('active');
-        }
-        
-        // If no categories selected, show all products
-        if (selectedCategories.size === 0) {
-          if (allButton) allButton.classList.add('active');
-          displayProducts();
-        } else {
-          // Filter products by selected categories
-          const filteredProducts = getProductsByMultipleCategories(Array.from(selectedCategories));
-          displayProducts(filteredProducts);
-        }
+        selectedCategories.clear();
+        selectedCategories.add(category);
+        const filteredProducts = products.filter(product => product.category === category);
+        displayProducts(filteredProducts);
       }
-      // Use offset scroll for better UX
-      scrollToProductsWithOffset();
     });
   });
-}
-
-function getProductsByMultipleCategories(categories) {
-  return products.filter(product => categories.includes(product.category));
-}
-
-// ========================================
-// CATEGORY TOGGLE FUNCTION
-// ========================================
-
-function toggleCategories() {
-  const categoryFilter = document.getElementById('category-filter');
-  const floatingToggleBtn = document.getElementById('floating-toggle-btn');
-  if (!categoryFilter) return;
-  const isHidden = categoryFilter.classList.contains('hidden');
-  
-  if (isHidden) {
-    categoryFilter.classList.remove('hidden');
-    if (floatingToggleBtn) floatingToggleBtn.classList.remove('show');
-    localStorage.setItem('categoriesHidden', 'false');
-  } else {
-    categoryFilter.classList.add('hidden');
-    if (floatingToggleBtn) floatingToggleBtn.classList.add('show');
-    localStorage.setItem('categoriesHidden', 'true');
-  }
-}
-
-function initializeCategoryVisibility() {
-  const categoryFilter = document.getElementById('category-filter');
-  const floatingToggleBtn = document.getElementById('floating-toggle-btn');
-  if (!categoryFilter) return;
-  const categoriesHidden = localStorage.getItem('categoriesHidden');
-  
-  if (categoriesHidden === 'true') {
-    categoryFilter.classList.add('hidden');
-    if (floatingToggleBtn) floatingToggleBtn.classList.add('show');
-  }
 }
 
 // ========================================
@@ -1009,7 +994,6 @@ window.addEventListener('DOMContentLoaded', () => {
   // Setup category filtering
   if (document.getElementById('category-filter')) {
     setupCategoryFilter();
-    initializeCategoryVisibility();
   }
   
   // Setup responsive carousel

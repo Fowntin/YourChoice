@@ -75,22 +75,6 @@
     <p>Shop your favourites, anytime.</p>
   </section>
 
-  <!-- Sticky Category Filter -->
-  <section class="category-filter" id="category-filter">
-    <div class="filter-container">
-      <button class="filter-btn active" data-category="all">All Products</button>
-      <button class="filter-btn" data-category="computers">💻 Computers</button>
-      <button class="filter-btn" data-category="accessories">🧩 Accessories</button>
-      <button class="filter-btn" data-category="cables-power">🔌 Cables & Power</button>
-      <button class="filter-btn" data-category="pc-components">🧠 PC Components</button>
-      <button class="filter-btn" data-category="bags-protection">🎒 Bags & Protection</button>
-      <button class="filter-btn" data-category="networking">🌐 Networking</button>
-    </div>
-    <button class="toggle-categories-btn" onclick="toggleCategories()" title="Toggle Categories">
-      <span class="toggle-icon">▼</span>
-    </button>
-  </section>
-
   <!-- Trending Products Carousel -->
   <section class="trending-products">
     <h2>🔥 Trending Products</h2>
@@ -106,9 +90,33 @@
     </div>
   </section>
 
-  <!-- All Products -->
-  <section class="products" id="products">
-    <!-- Products will be loaded dynamically -->
+  <!-- All Products Catalog -->
+  <section class="products-section" id="products">
+    <!-- Sticky Segmented Category Navigation -->
+    <div class="products-header-sticky">
+      <div class="products-header-inner">
+        <div class="products-title-group">
+          <h2>Explore Products</h2>
+          <span class="products-count-badge" id="products-count-badge">Loading items...</span>
+        </div>
+        <nav class="category-segmented-nav" aria-label="Product categories">
+          <div class="segmented-track" id="category-filter">
+            <button class="filter-btn active" data-category="all">All</button>
+            <button class="filter-btn" data-category="computers">Computers</button>
+            <button class="filter-btn" data-category="accessories">Accessories</button>
+            <button class="filter-btn" data-category="cables-power">Cables & Power</button>
+            <button class="filter-btn" data-category="pc-components">PC Components</button>
+            <button class="filter-btn" data-category="bags-protection">Bags & Protection</button>
+            <button class="filter-btn" data-category="networking">Networking</button>
+          </div>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Products Grid -->
+    <div class="products-grid" id="products-grid">
+      <!-- Products will be loaded dynamically -->
+    </div>
   </section>
 
 <footer class="footer" id="contact">
@@ -131,11 +139,6 @@
 <button id="floating-cart-btn" class="floating-cart-btn" onclick="toggleCartView()">
   🛒
   <span class="cart-count" id="floating-cart-count">0</span>
-</button>
-
-<!-- Floating Toggle Button -->
-<button id="floating-toggle-btn" class="floating-toggle-btn" onclick="toggleCategories()" title="Show Categories">
-  <span class="toggle-icon">▲</span>
 </button>
 
 <div id="cart-overlay" class="cart-overlay"></div>
