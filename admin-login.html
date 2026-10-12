@@ -14,29 +14,42 @@
         <h2>Admin Dashboard</h2>
       </div>
       
+      <div id="login-notice" class="admin-session-notice" style="display: none;"></div>
+      
       <form id="admin-login-form" class="admin-login-form">
         <div class="form-group">
-          <label for="username">Username</label>
-          <input type="text" id="username" name="username" required />
+          <label for="username">Administrator Username</label>
+          <input type="text" id="username" name="username" placeholder="e.g. Fowntin" required autocomplete="username" />
         </div>
         
         <div class="form-group">
-          <label for="password">Password</label>
-          <input type="password" id="password" name="password" required />
+          <label for="password">Administrator Password</label>
+          <input type="password" id="password" name="password" placeholder="••••••••••••" required autocomplete="current-password" />
         </div>
         
-        <button type="submit" class="admin-login-btn">Login</button>
+        <button type="submit" class="admin-login-btn">Sign In to Dashboard</button>
       </form>
       
       <div id="login-message" class="login-message"></div>
       
       <div class="admin-links">
-        <a href="admin-create.html">Create New Admin</a>
+        <a href="index.html">← Return to Store</a>
       </div>
+      <p class="admin-auth-note">Note: New administrators can only be created by an authenticated administrator within their dashboard.</p>
     </div>
   </div>
 
   <script>
+    // Check if user was redirected from admin creation due to missing session
+    const redirectNotice = sessionStorage.getItem('adminNotice');
+    if (redirectNotice) {
+      const noticeEl = document.getElementById('login-notice');
+      if (noticeEl) {
+        noticeEl.textContent = redirectNotice;
+        noticeEl.style.display = 'block';
+      }
+      sessionStorage.removeItem('adminNotice');
+    }
     document.getElementById('admin-login-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       
