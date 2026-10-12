@@ -1,4 +1,10 @@
-require('dotenv').config({ override: true });
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Load environment variables from both backend/.env and root .env
+dotenv.config({ path: path.resolve(__dirname, 'backend/.env'), override: true });
+dotenv.config({ path: path.resolve(__dirname, '.env'), override: true });
+
 const app = require('./backend/server');
 
 const PORT = process.env.PORT || 3000;
