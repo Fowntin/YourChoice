@@ -853,7 +853,7 @@ function createProductCard(product) {
   }
   
   // Create features display
-  let featuresDisplay = '';
+  let featuresDisplay = '<div class="product-features empty" aria-hidden="true"></div>';
   if (product.features && product.features.length > 0) {
     featuresDisplay = '<div class="product-features">';
     product.features.slice(0, 3).forEach(feature => {
@@ -876,7 +876,7 @@ function createProductCard(product) {
     <div class="product-card-body">
       <h3>${product.name}</h3>
       ${featuresDisplay}
-      ${priceDisplay}
+      <div class="product-price-row">${priceDisplay}</div>
       ${stockInfo}
     </div>
     <button type="button" class="add-to-cart-btn" data-product-id="${product.id}">
