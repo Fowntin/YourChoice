@@ -72,16 +72,16 @@
   </section>
 
   <!-- Trending Products Carousel -->
-  <section class="trending-products">
+  <section class="trending-products" aria-label="Trending Products">
     <h2>🔥 Trending Products</h2>
-    <div class="carousel-container">
-      <button class="carousel-btn prev-btn" onclick="slideCarousel('prev')">‹</button>
-      <div class="carousel-track" id="trending-carousel">
+    <div class="carousel-container" role="region" aria-roledescription="carousel" aria-label="Trending Products Carousel">
+      <button class="carousel-btn prev-btn" aria-label="Previous slide" onclick="slideCarousel('prev')">‹</button>
+      <div class="carousel-track" id="trending-carousel" aria-live="polite">
         <!-- Trending products will be loaded here -->
       </div>
-      <button class="carousel-btn next-btn" onclick="slideCarousel('next')">›</button>
+      <button class="carousel-btn next-btn" aria-label="Next slide" onclick="slideCarousel('next')">›</button>
     </div>
-    <div class="carousel-dots" id="carousel-dots">
+    <div class="carousel-dots" id="carousel-dots" role="tablist" aria-label="Slide indicators">
       <!-- Dots will be generated here -->
     </div>
   </section>

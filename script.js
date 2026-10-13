@@ -545,25 +545,73 @@ function stopAutoSlide() {
   }
 }
 
-// Pause auto-slide when hovering or interacting with the carousel
+// Touch and gesture interaction variables
+let touchStartX = 0;
+let touchStartY = 0;
+let touchDeltaX = 0;
+let isSwiping = false;
+
+// Pause auto-slide when hovering over the carousel
 function setupCarouselHover() {
   const container = document.querySelector('.carousel-container');
-  if (!container) return;
+  if (!container || container.dataset.hoverBound) return;
+  container.dataset.hoverBound = 'true';
 
   container.addEventListener('mouseenter', () => {
     stopAutoSlide();
   });
 
   container.addEventListener('mouseleave', () => {
-    startAutoSlide();
+    pauseAndResumeAutoSlide(2500);
   });
+}
 
-  container.addEventListener('touchstart', () => {
+// Full touch gesture support for mobile devices
+function setupCarouselTouchGestures() {
+  const container = document.querySelector('.carousel-container');
+  if (!container || container.dataset.touchBound) return;
+  container.dataset.touchBound = 'true';
+
+  container.addEventListener('touchstart', (e) => {
+    if (!e.touches || e.touches.length === 0) return;
     stopAutoSlide();
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchDeltaX = 0;
+    isSwiping = true;
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (e) => {
+    if (!isSwiping || !e.touches || e.touches.length === 0) return;
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const diffX = currentX - touchStartX;
+    const diffY = currentY - touchStartY;
+
+    // Recognize horizontal swipe gestures
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+      touchDeltaX = diffX;
+    }
   }, { passive: true });
 
   container.addEventListener('touchend', () => {
-    pauseAndResumeAutoSlide(3000);
+    if (!isSwiping) return;
+    isSwiping = false;
+
+    const swipeThreshold = 40; // 40px threshold for deliberate swipe
+    if (touchDeltaX < -swipeThreshold) {
+      slideCarousel('next');
+    } else if (touchDeltaX > swipeThreshold) {
+      slideCarousel('prev');
+    }
+
+    pauseAndResumeAutoSlide(4000);
+  }, { passive: true });
+
+  container.addEventListener('touchcancel', () => {
+    isSwiping = false;
+    touchDeltaX = 0;
+    pauseAndResumeAutoSlide(4000);
   }, { passive: true });
 }
 
@@ -571,25 +619,94 @@ function setupCarouselHover() {
 // CAROUSEL FUNCTIONS
 // ========================================
 
-function getCarouselCardWidth() {
+function getCarouselLayout() {
   const track = document.getElementById('trending-carousel');
-  if (!track) return 312;
-  const card = track.querySelector('.product-card');
-  const style = window.getComputedStyle(track);
-  const gap = parseFloat(style.gap) || 0;
-  return card ? card.offsetWidth + gap : 312;
+  const container = track ? track.parentElement : null;
+  const containerWidth = container ? container.clientWidth : (window.innerWidth || 360);
+  const screenWidth = window.innerWidth;
+  const isMobile = screenWidth < 768;
+
+  let computedSlidesPerView = 4;
+  if (screenWidth < 768) {
+    computedSlidesPerView = 1;
+  } else if (screenWidth < 1024) {
+    computedSlidesPerView = 2;
+  } else if (screenWidth < 1200) {
+    computedSlidesPerView = 3;
+  }
+
+  let cardWidth;
+  let gap;
+  let centerOffset = 0;
+
+  if (isMobile) {
+    // Single card taking ~84% of mobile viewport with peek margins for edge context
+    gap = 16;
+    cardWidth = Math.min(Math.round(containerWidth * 0.84), 360);
+    centerOffset = Math.round((containerWidth - cardWidth) / 2);
+  } else {
+    gap = screenWidth < 1024 ? 20 : 32;
+    const totalGaps = (computedSlidesPerView - 1) * gap;
+    cardWidth = Math.max(Math.round((containerWidth - totalGaps) / computedSlidesPerView), 220);
+    centerOffset = 0;
+  }
+
+  return {
+    isMobile,
+    slidesPerView: computedSlidesPerView,
+    cardWidth,
+    gap,
+    centerOffset,
+    containerWidth
+  };
+}
+
+function applyCarouselCardDimensions() {
+  const track = document.getElementById('trending-carousel');
+  if (!track) return;
+  const { cardWidth, gap } = getCarouselLayout();
+  track.style.gap = `${gap}px`;
+
+  const cards = track.querySelectorAll('.product-card');
+  cards.forEach(card => {
+    card.style.width = `${cardWidth}px`;
+    card.style.minWidth = `${cardWidth}px`;
+    card.style.maxWidth = `${cardWidth}px`;
+    card.style.flexShrink = '0';
+  });
+}
+
+function updateActiveCardClasses(slideIndex) {
+  const track = document.getElementById('trending-carousel');
+  if (!track) return;
+  const cards = track.querySelectorAll('.product-card');
+  if (!cards.length) return;
+
+  cards.forEach((card, idx) => {
+    if (idx === slideIndex) {
+      card.classList.add('carousel-card-focused');
+      card.setAttribute('aria-current', 'true');
+    } else {
+      card.classList.remove('carousel-card-focused');
+      card.removeAttribute('aria-current');
+    }
+  });
 }
 
 function setTrackPosition(index, animate = true) {
   const track = document.getElementById('trending-carousel');
   if (!track) return;
-  const cardWidth = getCarouselCardWidth();
+  const { cardWidth, gap, centerOffset } = getCarouselLayout();
+  const step = cardWidth + gap;
+  const translateX = -(index * step) + centerOffset;
+
   if (animate) {
     track.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
   } else {
     track.style.transition = 'none';
   }
-  track.style.transform = `translateX(-${index * cardWidth}px)`;
+  track.style.transform = `translateX(${translateX}px)`;
+  updateActiveCardClasses(index);
 }
 
 function slideCarousel(direction) {
@@ -868,6 +985,7 @@ function displayTrendingProducts() {
     currentSlide = 0;
   }
   
+  applyCarouselCardDimensions();
   createCarouselDots(totalSlides);
   updateCarouselButtons();
   
@@ -877,6 +995,8 @@ function displayTrendingProducts() {
 
   // Attach transitionend listener for seamless wrapping
   setupTrackTransitionListener();
+  setupCarouselTouchGestures();
+  setupCarouselHover();
   
   // Start auto-sliding if there are enough products
   if (totalSlides > slidesPerView) {
@@ -895,20 +1015,12 @@ function updateCarouselOnResize() {
   
   clearTimeout(carouselResizeDebounce);
   carouselResizeDebounce = setTimeout(() => {
-    const screenWidth = window.innerWidth;
-    let newSlidesPerView = 4;
-    
-    if (screenWidth < 768) {
-      newSlidesPerView = 1;
-    } else if (screenWidth < 1024) {
-      newSlidesPerView = 2;
-    } else if (screenWidth < 1200) {
-      newSlidesPerView = 3;
-    }
+    const { slidesPerView: newSlidesPerView } = getCarouselLayout();
     
     if (newSlidesPerView !== slidesPerView) {
       displayTrendingProducts();
     } else {
+      applyCarouselCardDimensions();
       setTrackPosition(currentSlide, false);
     }
   }, 100);
@@ -1015,6 +1127,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('trending-carousel')) {
     window.addEventListener('resize', updateCarouselOnResize);
     setupCarouselHover(); // Setup hover for auto-slide
+    setupCarouselTouchGestures(); // Setup touch swipe gestures
     startAutoSlide(); // Start auto-slide
 
     // Stop auto-slide when carousel navigation buttons are clicked

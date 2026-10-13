@@ -1164,6 +1164,7 @@ footer {
   max-width: 1200px;
   margin: 0 auto;
   overflow: hidden;
+  padding: 0.75rem 0;
 }
 
 .carousel-track {
@@ -1171,12 +1172,18 @@ footer {
   transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform;
   gap: 2rem;
-  /* Removed padding to prevent half-cards at the edges */
+  align-items: stretch;
 }
 
 .carousel-track .product-card {
   min-width: 280px;
   flex-shrink: 0;
+  transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.4s ease, opacity 0.4s ease;
+  will-change: transform, box-shadow;
+}
+
+.carousel-track .product-card.carousel-card-focused {
+  z-index: 2;
 }
 
 .carousel-btn {
@@ -1197,6 +1204,7 @@ footer {
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  touch-action: manipulation;
 }
 
 .carousel-btn:hover {
@@ -1221,21 +1229,24 @@ footer {
 .carousel-dots {
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: 0.5rem;
   margin-top: 2rem;
 }
 
 .carousel-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background-color: #ddd;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background-color: #d1d5db;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .carousel-dot.active {
+  width: 26px;
   background-color: #ff6f00;
+  border-radius: 9999px;
 }
 
 .carousel-dot:hover {
@@ -1263,21 +1274,31 @@ footer {
   }
   
   .carousel-track .product-card {
-    min-width: 250px;
+    opacity: 0.88;
+    transform: scale(0.97);
+  }
+
+  .carousel-track .product-card.carousel-card-focused {
+    opacity: 1;
+    transform: scale(1.02);
+    box-shadow: 0 14px 28px -6px rgba(0, 0, 0, 0.16);
+    z-index: 2;
   }
   
   .carousel-btn {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     font-size: 1.2rem;
+    background-color: rgba(255, 111, 0, 0.92);
+    backdrop-filter: blur(4px);
   }
   
   .carousel-btn.prev-btn {
-    left: 5px;
+    left: 6px;
   }
   
   .carousel-btn.next-btn {
-    right: 5px;
+    right: 6px;
   }
 }
 
@@ -1304,16 +1325,6 @@ footer {
     left: 15px;
     width: 40px;
     height: 40px;
-    font-size: 1rem;
-  }
-  
-  .carousel-track .product-card {
-    min-width: 220px;
-  }
-  
-  .carousel-btn {
-    width: 35px;
-    height: 35px;
     font-size: 1rem;
   }
 }
@@ -3694,11 +3705,7 @@ body {
 
   /* Trending Carousel Mobile Optimization */
   .trending-products {
-    padding: 2rem 0.75rem !important;
-  }
-
-  .carousel-track .product-card {
-    min-width: 220px !important;
+    padding: 2rem 0.5rem !important;
   }
 
   .carousel-btn {
