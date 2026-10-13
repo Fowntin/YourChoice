@@ -102,7 +102,7 @@ test('Customer Order Placement & User Orders Retrieval', async () => {
   assert.equal(userOrdersRes.body[0].status, 'Pending');
 
   // 3. Fetch customer orders by string userId (e.g., usr_jane_123)
-  const userOrdersByIdRes = await request(app).get(`/api/user/orders?userId=usr_jane_123`);
+  const userOrdersByIdRes = await request(app).get('/api/user/orders?userId=usr_jane_123');
   assert.equal(userOrdersByIdRes.status, 200);
   assert.ok(Array.isArray(userOrdersByIdRes.body));
   assert.ok(userOrdersByIdRes.body.some(o => o.email === customerEmail));
