@@ -27,7 +27,7 @@
           <a href="index.html" class="admin-nav-link" target="_blank" rel="noopener">Storefront ↗</a>
           <a href="#orders-section" class="admin-nav-link">Orders</a>
           <a href="#admins-section" class="admin-nav-link">Administrators</a>
-          <a href="admin-create.html" class="admin-nav-btn">+ Add Admin</a>
+          <a href="#quick-create-admin-form" class="admin-nav-btn" id="nav-add-admin-btn">+ Add Admin</a>
         </nav>
       </div>
     </header>
@@ -100,7 +100,6 @@
           </div>
           <div class="section-actions">
             <button id="refresh-admins" class="refresh-btn" type="button">Refresh Admins</button>
-            <a href="admin-create.html" class="action-link-btn">Dedicated Page ↗</a>
           </div>
         </div>
 
@@ -703,6 +702,22 @@
     // Refresh handlers
     document.getElementById('refresh-orders').addEventListener('click', () => loadDashboardData());
     document.getElementById('refresh-admins').addEventListener('click', () => loadAdmins());
+
+    // + Add Admin navigation button handler (smooth scroll & focus)
+    const addAdminBtn = document.getElementById('nav-add-admin-btn');
+    if (addAdminBtn) {
+      addAdminBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.getElementById('quick-create-admin-form');
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const usernameInput = document.getElementById('quick-username');
+          if (usernameInput) {
+            setTimeout(() => usernameInput.focus(), 300);
+          }
+        }
+      });
+    }
   </script>
 </body>
 </html>
