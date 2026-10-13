@@ -18,6 +18,9 @@
           </div>
 
           <div class="admin-user-group">
+            <span class="admin-db-badge" id="admin-db-badge" title="Active Database Connection">
+              <span class="db-status-dot"></span> <span id="active-db-name">DB: yourchoice</span>
+            </span>
             <span class="admin-user-label">Admin: <strong id="current-admin-name">Admin</strong></span>
             <button id="logout-btn" class="logout-btn" type="button">Logout</button>
           </div>
@@ -45,7 +48,7 @@
             <h3>Total Orders</h3>
             <p id="total-orders">0</p>
           </div>
-          <div class="stat-card">
+          <div class="stat-card stat-card-revenue">
             <h3>Total Revenue</h3>
             <p id="total-revenue">GH₵0.00</p>
           </div>
@@ -84,11 +87,6 @@
             </tbody>
           </table>
         </div>
-
-        <!-- Adaptive Mobile Order Cards (Shown on Mobile) -->
-        <div class="orders-cards-container" id="orders-cards-container">
-          <div class="table-loading">Loading customer orders...</div>
-        </div>
       </section>
 
       <!-- Admin Accounts & Access Section -->
@@ -123,11 +121,6 @@
                   <tr><td colspan="4" class="table-loading">Loading administrators...</td></tr>
                 </tbody>
               </table>
-            </div>
-
-            <!-- Adaptive Mobile Admins Cards (Shown on Mobile) -->
-            <div class="admins-cards-container" id="admins-cards-container">
-              <div class="table-loading">Loading administrators...</div>
             </div>
           </div>
 
@@ -320,6 +313,18 @@
           displayOrders(currentOrders);
         }
 
+        // 3. Query health endpoint to reflect active MongoDB database name
+        try {
+          const healthRes = await resilientFetch('/api/health');
+          if (healthRes.ok) {
+            const health = await healthRes.json();
+            const dbBadge = document.getElementById('active-db-name');
+            if (dbBadge && health.dbName) {
+              dbBadge.textContent = `DB: ${health.dbName}`;
+            }
+          }
+        } catch (_) {}
+
         // If previously showing a warning banner, hide it upon healthy response
         if (statusBanner && statusBanner.style.display !== 'none') {
           statusBanner.style.display = 'none';
@@ -341,7 +346,6 @@
     // Load administrators directory
     async function loadAdmins() {
       const tbody = document.getElementById('admins-tbody');
-      const cardsContainer = document.getElementById('admins-cards-container');
       const countEl = document.getElementById('dashboard-admin-count');
       try {
         const response = await resilientFetch('/api/admin/admins', {
@@ -354,11 +358,9 @@
           if (Array.isArray(admins)) {
             countEl.textContent = admins.length;
             if (tbody) tbody.innerHTML = '';
-            if (cardsContainer) cardsContainer.innerHTML = '';
 
             if (admins.length === 0) {
               if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="no-orders">No administrators found</td></tr>';
-              if (cardsContainer) cardsContainer.innerHTML = '<div class="no-orders-card">No administrators found</div>';
               return;
             }
 
@@ -369,36 +371,17 @@
               if (tbody) {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                  <td>
+                  <td data-label="Username">
                     <span class="admin-user-cell">
                       👤 <strong>${escapeHtml(admin.username)}</strong>
                       ${isYou ? '<span class="current-user-tag">You</span>' : ''}
                     </span>
                   </td>
-                  <td><span class="role-pill">Administrator</span></td>
-                  <td class="tabular-nums">${dateStr}</td>
-                  <td><span class="status-active-badge">Active</span></td>
+                  <td data-label="Role"><span class="role-pill">Administrator</span></td>
+                  <td data-label="Created" class="tabular-nums">${dateStr}</td>
+                  <td data-label="Status"><span class="status-active-badge">Active</span></td>
                 `;
                 tbody.appendChild(row);
-              }
-
-              if (cardsContainer) {
-                const adminCard = document.createElement('div');
-                adminCard.className = 'mobile-admin-card';
-                adminCard.innerHTML = `
-                  <div class="mobile-admin-top">
-                    <span class="admin-user-cell">
-                      👤 <strong>${escapeHtml(admin.username)}</strong>
-                      ${isYou ? '<span class="current-user-tag">You</span>' : ''}
-                    </span>
-                    <span class="status-active-badge">Active</span>
-                  </div>
-                  <div class="mobile-admin-sub">
-                    <span class="role-pill">Administrator</span>
-                    <span class="mobile-admin-date">Added ${dateStr}</span>
-                  </div>
-                `;
-                cardsContainer.appendChild(adminCard);
               }
             });
           }
@@ -406,7 +389,6 @@
       } catch (err) {
         console.warn('Notice loading administrators directory:', err.message || err);
         if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="no-orders">Unable to load administrators list. <button type="button" onclick="loadAdmins()" class="table-retry-btn">Retry</button></td></tr>';
-        if (cardsContainer) cardsContainer.innerHTML = '<div class="no-orders-card">Unable to load administrators list. <button type="button" onclick="loadAdmins()" class="table-retry-btn">Retry</button></div>';
       }
     }
 
@@ -478,41 +460,36 @@
       }
     });
 
-    // Display orders in table & mobile cards
+    // Display orders in table with responsive data-labels
     function displayOrders(orders) {
       const tbody = document.getElementById('orders-tbody');
-      const cardsContainer = document.getElementById('orders-cards-container');
       if (tbody) tbody.innerHTML = '';
-      if (cardsContainer) cardsContainer.innerHTML = '';
 
       if (!Array.isArray(orders) || orders.length === 0) {
         if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="no-orders">No orders found</td></tr>';
-        if (cardsContainer) cardsContainer.innerHTML = '<div class="no-orders-card">No customer orders found</div>';
         return;
       }
 
       orders.forEach(order => {
         const itemsText = (order.items || []).map(item => `${escapeHtml(item.name)} (x${item.quantity})`).join(', ');
-        const totalItemsCount = (order.items || []).reduce((sum, item) => sum + (item.quantity || 1), 0);
         const orderIdDisplay = order._id ? order._id.slice(-6) : 'N/A';
         const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A';
         const formattedTotal = (Number(order.total) || 0).toFixed(2);
         
-        // 1. Desktop Row
         if (tbody) {
           const row = document.createElement('tr');
           row.innerHTML = `
-            <td><strong>#${escapeHtml(orderIdDisplay)}</strong></td>
-            <td>
+            <td data-label="Order ID"><strong>#${escapeHtml(orderIdDisplay)}</strong></td>
+            <td data-label="Customer">
               <div class="customer-info">
                 <strong>${escapeHtml(order.name || 'Anonymous')}</strong><br>
                 <small>${escapeHtml(order.email || '')}</small><br>
                 <small>${escapeHtml(order.phone || '')}</small>
               </div>
             </td>
-            <td class="items-cell">${itemsText}</td>
-            <td class="tabular-nums">GH₵${formattedTotal}</td>
-            <td>
+            <td data-label="Items" class="items-cell">${itemsText}</td>
+            <td data-label="Total" class="tabular-nums">GH₵${formattedTotal}</td>
+            <td data-label="Status">
               <select class="status-select" data-order-id="${escapeHtml(order._id)}" aria-label="Order status">
                 <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option>
                 <option value="Processing" ${order.status === 'Processing' ? 'selected' : ''}>Processing</option>
@@ -521,8 +498,8 @@
                 <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
               </select>
             </td>
-            <td class="tabular-nums">${dateStr}</td>
-            <td>
+            <td data-label="Date" class="tabular-nums">${dateStr}</td>
+            <td data-label="Actions">
               <button type="button" class="view-details-btn" data-order-id="${escapeHtml(order._id)}">View</button>
             </td>
           `;
@@ -542,66 +519,6 @@
           }
           
           tbody.appendChild(row);
-        }
-
-        // 2. Mobile Adaptive Order Card
-        if (cardsContainer) {
-          const card = document.createElement('div');
-          card.className = 'mobile-order-card';
-          card.innerHTML = `
-            <div class="mobile-card-top-bar">
-              <div class="mobile-order-meta">
-                <span class="mobile-order-id">#${escapeHtml(orderIdDisplay)}</span>
-                <span class="mobile-order-date">${dateStr}</span>
-              </div>
-              <div class="mobile-order-amount">GH₵${formattedTotal}</div>
-            </div>
-
-            <div class="mobile-card-customer-row">
-              <div class="mobile-customer-name">👤 <strong>${escapeHtml(order.name || 'Anonymous')}</strong></div>
-              <div class="mobile-customer-details">
-                ${order.phone ? `<span class="mobile-contact-item">📞 ${escapeHtml(order.phone)}</span>` : ''}
-                ${order.email ? `<span class="mobile-contact-item">✉️ ${escapeHtml(order.email)}</span>` : ''}
-              </div>
-            </div>
-
-            <div class="mobile-card-items-row">
-              <span class="mobile-items-label">Items (${totalItemsCount}):</span>
-              <span class="mobile-items-summary">${itemsText}</span>
-            </div>
-
-            <div class="mobile-card-actions-bar">
-              <div class="mobile-status-wrapper">
-                <label for="mobile-status-${escapeHtml(order._id)}" class="mobile-status-label">Status:</label>
-                <select id="mobile-status-${escapeHtml(order._id)}" class="status-select mobile-status-select" data-order-id="${escapeHtml(order._id)}">
-                  <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option>
-                  <option value="Processing" ${order.status === 'Processing' ? 'selected' : ''}>Processing</option>
-                  <option value="Shipped" ${order.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
-                  <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
-                  <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
-                </select>
-              </div>
-              <button type="button" class="view-details-btn mobile-view-btn" data-order-id="${escapeHtml(order._id)}">
-                View Details
-              </button>
-            </div>
-          `;
-
-          const mobileSelect = card.querySelector('.mobile-status-select');
-          if (mobileSelect) {
-            mobileSelect.addEventListener('change', function() {
-              updateOrderStatus(order._id, this.value);
-            });
-          }
-
-          const mobileViewBtn = card.querySelector('.mobile-view-btn');
-          if (mobileViewBtn) {
-            mobileViewBtn.addEventListener('click', function() {
-              viewOrderDetails(order._id);
-            });
-          }
-
-          cardsContainer.appendChild(card);
         }
       });
     }
