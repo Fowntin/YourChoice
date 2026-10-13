@@ -5,18 +5,152 @@
 let cart = [];  // Initialize cart as an empty array        
 
 // ========================================
-// SHOW TOAST FUNCTION
+// SHOW TOAST FUNCTION (MODERNIZED)
 // ========================================
 
-function showToast(message, type = 'success') {
+let toastTimeout = null;
+let toastProgressInterval = null;
+let toastRemainingTime = 0;
+let toastTotalTime = 0;
+let isToastPaused = false;
+
+function getToastIcon(type) {
+  switch (type) {
+    case 'success':
+      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
+    case 'error':
+      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`;
+    case 'warning':
+      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+    case 'info':
+    default:
+      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff9a00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+  }
+}
+
+function dismissToast() {
   const toast = document.getElementById('toast');
   if (!toast) return;
-  toast.textContent = message;
-  toast.className = `toast show ${type}`; // Add type class
+  if (toastTimeout) {
+    clearTimeout(toastTimeout);
+    toastTimeout = null;
+  }
+  if (toastProgressInterval) {
+    clearInterval(toastProgressInterval);
+    toastProgressInterval = null;
+  }
+  toast.classList.remove('show');
+}
 
-  setTimeout(() => {
-    toast.classList.remove('show');
-  }, 3000);
+function showToast(message, type = 'success', action = null, duration = 3500) {
+  const toast = document.getElementById('toast');
+  if (!toast) return;
+
+  // Clear any existing active timer
+  if (toastTimeout) clearTimeout(toastTimeout);
+  if (toastProgressInterval) clearInterval(toastProgressInterval);
+
+  // Extend duration slightly if an action button is present so the user can comfortably click
+  const totalDuration = action ? Math.max(duration, 4500) : duration;
+  toastTotalTime = totalDuration;
+  toastRemainingTime = totalDuration;
+  isToastPaused = false;
+
+  const typeTitles = {
+    success: 'Success',
+    error: 'Attention',
+    warning: 'Notice',
+    info: 'Information'
+  };
+
+  const actionHtml = action && action.text ? `
+    <button class="toast-action-btn" type="button" id="toast-action-btn">
+      ${action.text}
+    </button>
+  ` : '';
+
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `
+    <div class="toast-body">
+      <div class="toast-icon-wrap" aria-hidden="true">
+        ${getToastIcon(type)}
+      </div>
+      <div class="toast-content">
+        <span class="toast-title">${typeTitles[type] || 'Notice'}</span>
+        <div class="toast-message">${message}</div>
+      </div>
+      ${actionHtml}
+      <button class="toast-close-btn" type="button" aria-label="Dismiss notification" id="toast-close-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+    <div class="toast-progress-track">
+      <div class="toast-progress-bar" id="toast-progress-bar"></div>
+    </div>
+  `;
+
+  // Bind close button
+  const closeBtn = document.getElementById('toast-close-btn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dismissToast();
+    });
+  }
+
+  // Bind action button
+  const actionBtn = document.getElementById('toast-action-btn');
+  if (actionBtn && action && typeof action.onClick === 'function') {
+    actionBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dismissToast();
+      try {
+        action.onClick();
+      } catch (err) {
+        console.error('Error executing toast action:', err);
+      }
+    });
+  }
+
+  // Tap/click to dismiss on toast card (excluding clicks inside the action button)
+  toast.onclick = (e) => {
+    if (e.target.closest('#toast-action-btn')) return;
+    dismissToast();
+  };
+
+  // Pause timer on hover, resume on mouse leave
+  toast.onmouseenter = () => {
+    isToastPaused = true;
+  };
+  toast.onmouseleave = () => {
+    isToastPaused = false;
+  };
+
+  // Trigger entrance transition
+  requestAnimationFrame(() => {
+    toast.classList.add('show');
+  });
+
+  // Animated progress bar countdown
+  const progressBar = document.getElementById('toast-progress-bar');
+  if (progressBar) {
+    progressBar.style.transform = 'scaleX(1)';
+  }
+
+  const intervalStep = 25;
+  toastProgressInterval = setInterval(() => {
+    if (isToastPaused) return;
+
+    toastRemainingTime -= intervalStep;
+    if (toastRemainingTime <= 0) {
+      clearInterval(toastProgressInterval);
+      toastProgressInterval = null;
+      dismissToast();
+    } else if (progressBar) {
+      const progressFraction = Math.max(0, toastRemainingTime / toastTotalTime);
+      progressBar.style.transform = `scaleX(${progressFraction})`;
+    }
+  }, intervalStep);
 }
 
 // ========================================
@@ -92,7 +226,12 @@ function addToCart(productOrId) {
     updateCartUI();
     updateFloatingCartCount(); // Update floating cart
     hideProcessingState();
-    showToast(`${product.name} added to cart`, 'success');
+    showToast(`${product.name} added to cart`, 'success', {
+      text: 'View Cart',
+      onClick: () => {
+        if (typeof toggleCartView === 'function') toggleCartView();
+      }
+    });
   }, 100); // Small delay for visual feedback
 }
 
@@ -1260,7 +1399,12 @@ window.addEventListener('DOMContentLoaded', () => {
   if (justPlacedId) {
     sessionStorage.removeItem('justPlacedOrderId');
     setTimeout(() => {
-      showToast(`Order placed! Tap "📦 Orders" to track live delivery.`, 'success');
+      showToast(`Order placed successfully! Live delivery tracking is active.`, 'success', {
+        text: 'Track Order',
+        onClick: () => {
+          if (typeof openUserOrdersModal === 'function') openUserOrdersModal();
+        }
+      });
       loadUserOrders();
     }, 400);
   }
@@ -1324,7 +1468,12 @@ function toggleWishlist(product) {
       currency: product.currency || 'GH₵'
     });
     saveWishlist(list);
-    showToast(`Saved ${product.name} to wishlist ❤️`, 'success');
+    showToast(`Saved ${product.name} to wishlist`, 'success', {
+      text: 'View Wishlist',
+      onClick: () => {
+        if (typeof openWishlistModal === 'function') openWishlistModal();
+      }
+    });
   }
 
   // Synchronize all matching wishlist buttons across the page
@@ -1414,7 +1563,6 @@ function renderWishlistModal() {
       const product = (typeof products !== 'undefined' ? products : []).find(p => p.id === id);
       if (product) {
         addToCart(product);
-        showToast(`Moved ${product.name} to cart!`, 'success');
       }
     });
   });
