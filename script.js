@@ -813,6 +813,11 @@ function createCarouselDots(total) {
 // PRODUCT DISPLAY FUNCTIONS
 // ========================================
 
+// Helper to render crisp vector SVG heart icon
+function getWishlistHeartSvg() {
+  return `<svg class="wishlist-heart-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>`;
+}
+
 function createProductCard(product) {
   const card = document.createElement('div');
   card.className = 'product-card';
@@ -860,7 +865,7 @@ function createProductCard(product) {
   const inWishlist = typeof isWishlisted === 'function' ? isWishlisted(product.id) : false;
   card.innerHTML = `
     <button type="button" class="wishlist-btn ${inWishlist ? 'active' : ''}" data-product-id="${product.id}" aria-label="${inWishlist ? 'Remove from wishlist' : 'Save to wishlist'}">
-      ${inWishlist ? '❤️' : '🤍'}
+      ${getWishlistHeartSvg()}
     </button>
     ${badges}
     <img src="${product.images[0]}" alt="${product.name}" />
@@ -1264,8 +1269,14 @@ function toggleWishlist(product) {
   document.querySelectorAll(`.wishlist-btn[data-product-id="${product.id}"]`).forEach(btn => {
     const active = isWishlisted(product.id);
     btn.classList.toggle('active', active);
-    btn.textContent = active ? '❤️' : '🤍';
     btn.setAttribute('aria-label', active ? 'Remove from wishlist' : 'Save to wishlist');
+    if (!btn.querySelector('.wishlist-heart-icon')) {
+      btn.innerHTML = getWishlistHeartSvg();
+    }
+    // Trigger spring bounce animation
+    btn.classList.remove('heart-pop');
+    void btn.offsetWidth; // Force layout reflow
+    btn.classList.add('heart-pop');
   });
 
   const modal = document.getElementById('wishlist-modal');

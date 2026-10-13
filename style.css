@@ -2811,32 +2811,88 @@ body {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(4px);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.15rem;
   cursor: pointer;
   z-index: 5;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease;
   touch-action: manipulation;
+  padding: 0;
+  outline: none;
+}
+
+.wishlist-btn .wishlist-heart-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: #4b5563;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), stroke 0.2s ease, fill 0.2s ease;
+  pointer-events: none;
 }
 
 .wishlist-btn:hover {
-  transform: scale(1.15);
+  transform: scale(1.1);
   background: #ffffff;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  border-color: rgba(255, 255, 255, 1);
+}
+
+.wishlist-btn:hover .wishlist-heart-icon {
+  stroke: #1f2937;
+  transform: scale(1.06);
 }
 
 .wishlist-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.92);
 }
 
+/* Active Saved State: Vibrant Crimson Red with Soft Glow */
 .wishlist-btn.active {
-  background: #fff0f0;
-  border-color: #ffcdd2;
+  background: #ffffff;
+  border-color: rgba(239, 68, 68, 0.25);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.25), 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.wishlist-btn.active .wishlist-heart-icon {
+  fill: #ef4444;
+  stroke: #ef4444;
+}
+
+.wishlist-btn.active:hover {
+  border-color: rgba(239, 68, 68, 0.4);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.32);
+}
+
+/* Spring Bounce Heart-Pop Animation */
+.wishlist-btn.heart-pop .wishlist-heart-icon {
+  animation: heartSpringPop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+@keyframes heartSpringPop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.38);
+  }
+  65% {
+    transform: scale(0.88);
+  }
+  85% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* Mobile Actions Wishlist Trigger */
@@ -4089,8 +4145,12 @@ body {
   .wishlist-btn {
     width: 40px !important;
     height: 40px !important;
-    font-size: 1.25rem !important;
     top: 8px !important;
     right: 8px !important;
+  }
+
+  .wishlist-btn .wishlist-heart-icon {
+    width: 19px !important;
+    height: 19px !important;
   }
 }
