@@ -13,7 +13,38 @@
 
 <header class="navbar">
   <a href="#hero" class="logo">YourChoice</a>
-  
+
+  <!-- Desktop Navigation (Visible on >= 1024px) -->
+  <nav class="site-nav desktop-nav" aria-label="Desktop Navigation">
+    <ul class="nav-links">
+      <li><a href="#hero" class="nav-link">Home</a></li>
+      <li><a href="#products" class="nav-link">Shop</a></li>
+      <li>
+        <a href="#" class="nav-link nav-cart-link" id="nav-cart-btn">
+          Cart <span id="cart-count" class="cart-count">0</span>
+        </a>
+      </li>
+      <li>
+        <button id="nav-wishlist-btn" class="nav-link nav-btn-link" type="button" title="View Saved Wishlist">
+          Wishlist <span id="wishlist-count" class="nav-badge">0</span>
+        </button>
+      </li>
+      <li id="nav-orders-item" class="nav-orders-item" style="display: none;">
+        <button id="nav-orders-btn" class="nav-link nav-btn-link" type="button" title="View Order History & Tracking">
+          My Orders <span id="user-orders-count" class="nav-badge">0</span>
+        </button>
+      </li>
+      <li><a href="#contact" class="nav-link">Contact</a></li>
+      <li id="auth-links" class="nav-auth-item">
+        <a href="login.html" class="nav-auth-link">Login</a> <span class="nav-auth-sep">/</span> <a href="register.html" class="nav-auth-link">Register</a>
+      </li>
+      <li id="user-info" class="user-nav-group" style="display: none;">
+        <span class="user-greeting">Hi, <strong id="user-name">User</strong></span>
+        <button id="logout-link" class="logout-text-link" type="button">Logout</button>
+      </li>
+    </ul>
+  </nav>
+
   <!-- Mobile Action Buttons (Visible on mobile viewports for quick reach) -->
   <div class="mobile-actions">
     <button class="mobile-wishlist-btn" id="mobile-wishlist-trigger" aria-label="Open Saved Wishlist" title="Wishlist">
@@ -28,43 +59,48 @@
       <span class="hamburger-bar"></span>
     </button>
   </div>
+</header>
 
-  <!-- Unified Navigation: Single DOM Tree for both Desktop and Mobile -->
-  <div id="mobile-nav-backdrop" class="mobile-nav-backdrop"></div>
-  <nav class="site-nav" id="mobile-nav-drawer" aria-label="Main Navigation">
-    <div class="drawer-header">
-      <span class="drawer-logo">YourChoice</span>
-      <button id="close-drawer-btn" class="close-drawer-btn" aria-label="Close menu">&times;</button>
-    </div>
-    <ul class="nav-links">
-      <li><a href="#hero" class="nav-link"><span class="drawer-icon">🏠</span> Home</a></li>
-      <li><a href="#products" class="nav-link"><span class="drawer-icon">🛍️</span> Shop</a></li>
+<!-- Mobile Navigation Drawer & Backdrop (Direct child of body to guarantee viewport-relative fixed coordinates) -->
+<div id="mobile-nav-backdrop" class="mobile-nav-backdrop"></div>
+<aside class="mobile-nav-drawer" id="mobile-nav-drawer" aria-label="Mobile Navigation Drawer">
+  <div class="drawer-header">
+    <span class="drawer-logo">YourChoice</span>
+    <button id="close-drawer-btn" class="close-drawer-btn" aria-label="Close menu">&times;</button>
+  </div>
+  <div class="drawer-nav">
+    <ul>
+      <li><a href="#hero" class="drawer-link"><span class="drawer-icon">🏠</span> Home</a></li>
+      <li><a href="#products" class="drawer-link"><span class="drawer-icon">🛍️</span> Shop</a></li>
       <li>
-        <a href="#" class="nav-link nav-cart-link" id="nav-cart-btn">
-          <span class="drawer-icon">🛒</span> Cart <span id="cart-count" class="cart-count">0</span>
+        <a href="#" class="drawer-link drawer-cart-link" id="drawer-cart-link">
+          <span class="drawer-icon">🛒</span> Cart <span id="drawer-cart-count" class="cart-count">0</span>
         </a>
       </li>
       <li>
-        <button id="nav-wishlist-btn" class="nav-link nav-btn-link" type="button" title="View Saved Wishlist">
-          <span class="drawer-icon">❤️</span> Wishlist <span id="wishlist-count" class="nav-badge">0</span>
+        <button id="drawer-wishlist-btn" class="drawer-link drawer-btn-link" type="button" title="View Saved Wishlist">
+          <span class="drawer-icon">❤️</span> Wishlist <span id="drawer-wishlist-count" class="nav-badge">0</span>
         </button>
       </li>
-      <li id="nav-orders-item" class="nav-orders-item" style="display: none;">
-        <button id="nav-orders-btn" class="nav-link nav-btn-link" type="button" title="View Order History & Tracking">
-          <span class="drawer-icon">📦</span> My Orders <span id="user-orders-count" class="nav-badge">0</span>
+      <li id="drawer-orders-item" class="drawer-orders-item" style="display: none;">
+        <button id="drawer-orders-btn" class="drawer-link drawer-btn-link" type="button" title="View Order History & Tracking">
+          <span class="drawer-icon">📦</span> My Orders <span id="drawer-orders-count" class="nav-badge">0</span>
         </button>
       </li>
-      <li><a href="#contact" class="nav-link"><span class="drawer-icon">📞</span> Contact</a></li>
-      <li id="auth-links" class="nav-auth-item">
-        <a href="login.html" class="nav-auth-link">Login</a> <span class="nav-auth-sep">/</span> <a href="register.html" class="nav-auth-link">Register</a>
-      </li>
-      <li id="user-info" class="user-nav-group" style="display: none;">
-        <span class="user-greeting">Hi, <strong id="user-name">User</strong></span>
-        <button id="logout-link" class="logout-text-link" type="button">Logout</button>
-      </li>
+      <li><a href="#contact" class="drawer-link"><span class="drawer-icon">📞</span> Contact</a></li>
     </ul>
-  </nav>
-</header>
+  </div>
+  <div class="drawer-footer">
+    <div id="drawer-auth-links" class="drawer-auth-links">
+      <a href="login.html" class="drawer-btn drawer-login-btn">Login</a>
+      <a href="register.html" class="drawer-btn drawer-register-btn">Register</a>
+    </div>
+    <div id="drawer-user-info" class="drawer-user-info" style="display: none;">
+      <span class="user-greeting">Hi, <strong id="drawer-user-name">User</strong></span>
+      <button id="drawer-logout-link" class="logout-text-link" type="button">Logout</button>
+    </div>
+  </div>
+</aside>
 
   <section class="hero" id="hero">
     <h1>Welcome to YourChoice</h1>
@@ -204,16 +240,31 @@
       const userInfo = document.getElementById('user-info');
       const userName = document.getElementById('user-name');
       const ordersItem = document.getElementById('nav-orders-item');
+
+      const drawerAuthLinks = document.getElementById('drawer-auth-links');
+      const drawerUserInfo = document.getElementById('drawer-user-info');
+      const drawerUserName = document.getElementById('drawer-user-name');
+      const drawerOrdersItem = document.getElementById('drawer-orders-item');
       
       if (userLoggedIn && (user.name || user.username)) {
+        const displayName = user.name || user.username;
         if (authLinks) authLinks.style.display = 'none';
         if (userInfo) userInfo.style.display = 'flex';
-        if (userName) userName.textContent = user.name || user.username;
+        if (userName) userName.textContent = displayName;
         if (ordersItem) ordersItem.style.display = 'list-item';
+
+        if (drawerAuthLinks) drawerAuthLinks.style.display = 'none';
+        if (drawerUserInfo) drawerUserInfo.style.display = 'flex';
+        if (drawerUserName) drawerUserName.textContent = displayName;
+        if (drawerOrdersItem) drawerOrdersItem.style.display = 'list-item';
       } else {
         if (authLinks) authLinks.style.display = 'flex';
         if (userInfo) userInfo.style.display = 'none';
         if (ordersItem) ordersItem.style.display = 'none';
+
+        if (drawerAuthLinks) drawerAuthLinks.style.display = 'grid';
+        if (drawerUserInfo) drawerUserInfo.style.display = 'none';
+        if (drawerOrdersItem) drawerOrdersItem.style.display = 'none';
       }
     }
     
@@ -228,6 +279,9 @@
 
     const logoutLink = document.getElementById('logout-link');
     if (logoutLink) logoutLink.addEventListener('click', handleLogout);
+
+    const drawerLogoutLink = document.getElementById('drawer-logout-link');
+    if (drawerLogoutLink) drawerLogoutLink.addEventListener('click', handleLogout);
     
     // Check auth status on page load
     checkAuthStatus();

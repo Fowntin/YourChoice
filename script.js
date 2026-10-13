@@ -435,7 +435,7 @@ function openMobileDrawer() {
     menuBtn.classList.add('active');
     menuBtn.setAttribute('aria-expanded', 'true');
   }
-  document.body.style.overflow = 'hidden';
+  document.body.classList.add('drawer-open');
 }
 
 function closeMobileDrawer() {
@@ -448,7 +448,7 @@ function closeMobileDrawer() {
     menuBtn.classList.remove('active');
     menuBtn.setAttribute('aria-expanded', 'false');
   }
-  document.body.style.overflow = '';
+  document.body.classList.remove('drawer-open');
 }
 
 function setupMobileMenu() {
@@ -1096,6 +1096,42 @@ function setupCategoryFilter() {
       }
     });
   });
+}
+
+// Hardware-accelerated sticky category bar elevation observer
+function setupStickyCategoryNav() {
+  const stickyHeader = document.querySelector('.products-header-sticky');
+  const sentinel = document.getElementById('sticky-nav-sentinel');
+  const navbar = document.querySelector('.navbar');
+  if (!stickyHeader) return;
+
+  const updateStuckState = () => {
+    const navHeight = navbar ? navbar.offsetHeight : 64;
+    const headerRect = stickyHeader.getBoundingClientRect();
+    const isStuck = headerRect.top <= navHeight + 2;
+    stickyHeader.classList.toggle('is-stuck', isStuck);
+  };
+
+  if (sentinel && 'IntersectionObserver' in window) {
+    const navHeight = navbar ? navbar.offsetHeight : 64;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        const isStuck = !entry.isIntersecting && entry.boundingClientRect.top < navHeight;
+        stickyHeader.classList.toggle('is-stuck', isStuck);
+      });
+    }, {
+      rootMargin: `-${navHeight}px 0px 0px 0px`,
+      threshold: [0, 1]
+    });
+    observer.observe(sentinel);
+  }
+
+  window.addEventListener('scroll', () => {
+    window.requestAnimationFrame(updateStuckState);
+  }, { passive: true });
+
+  window.addEventListener('resize', updateStuckState, { passive: true });
+  updateStuckState();
 }
 
 // ========================================
