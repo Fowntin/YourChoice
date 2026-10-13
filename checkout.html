@@ -25,6 +25,7 @@
   <main class="checkout-container">
     <h1>Checkout</h1>
     <section class="checkout-form-section">
+      <div id="checkout-member-badge" class="checkout-member-badge" style="display: none;"></div>
       <form id="checkout-form">
         <h2>Customer Information</h2>
         <input type="text" id="customer-name" name="name" placeholder="Full Name" required />
@@ -60,6 +61,38 @@
 
   <script src="script.js"></script>
   <script>
+    // Escape helper
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
+    }
+
+    // Auto-prefill customer details for signed-in users
+    function prefillCustomerDetails() {
+      const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const savedPhone = localStorage.getItem('savedCustomerPhone') || user.phone || '';
+      const savedAddress = localStorage.getItem('savedCustomerAddress') || user.address || '';
+
+      const nameInput = document.getElementById('customer-name');
+      const emailInput = document.getElementById('customer-email');
+      const phoneInput = document.getElementById('customer-phone');
+      const addressInput = document.getElementById('customer-address');
+      const badgeEl = document.getElementById('checkout-member-badge');
+
+      if (userLoggedIn && (user.name || user.email || user.username)) {
+        if (nameInput && !nameInput.value) nameInput.value = user.name || user.username || '';
+        if (emailInput && !emailInput.value) emailInput.value = user.email || '';
+        if (phoneInput && !phoneInput.value && savedPhone) phoneInput.value = savedPhone;
+        if (addressInput && !addressInput.value && savedAddress) addressInput.value = savedAddress;
+
+        if (badgeEl) {
+          badgeEl.style.display = 'flex';
+          badgeEl.innerHTML = `<span>✨ Signed in as <strong>${escapeHtml(user.name || user.username || 'Member')}</strong> — saved details loaded</span>`;
+        }
+      }
+    }
+
     // Load cart from localStorage and display order summary
     function loadOrderSummary() {
       const cart = JSON.parse(localStorage.getItem('cart')) || [];
@@ -82,7 +115,10 @@
       totalEl.textContent = total.toFixed(2);
       document.getElementById('place-order-btn').disabled = false;
     }
+
     loadOrderSummary();
+    prefillCustomerDetails();
+
     // Handle form submission and send order to backend
     document.getElementById('checkout-form').addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -97,18 +133,22 @@
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       
       const orderData = {
-        name: formData.get('name'),
-        email: formData.get('email'),
-        phone: formData.get('phone'),
-        address: formData.get('address'),
+        name: formData.get('name').trim(),
+        email: formData.get('email').trim(),
+        phone: formData.get('phone').trim(),
+        address: formData.get('address').trim(),
         items: cart,
         total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
       };
       
-      // Associate order with user if logged in
+      // Associate order with customer if logged in
       if (user.id) {
         orderData.userId = user.id;
       }
+
+      const submitBtn = document.getElementById('place-order-btn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Processing Order...';
 
       try {
         const response = await fetch('/api/orders', {
@@ -119,26 +159,35 @@
           body: JSON.stringify(orderData)
         });
 
+        const data = await response.json();
+
         if (response.ok) {
-          showToast('Order placed successfully!', 'success');
-          // Clear cart after successful order
+          // Persist customer contact details for future frictionless checkouts
+          if (orderData.phone) localStorage.setItem('savedCustomerPhone', orderData.phone);
+          if (orderData.address) localStorage.setItem('savedCustomerAddress', orderData.address);
+          if (data.orderId) sessionStorage.setItem('justPlacedOrderId', data.orderId);
+
+          showToast('Order placed successfully! Redirecting...', 'success');
           localStorage.removeItem('cart');
-          // Redirect to home page after 2 seconds
           setTimeout(() => {
             window.location.href = 'index.html';
-          }, 2000);
+          }, 1500);
         } else {
-          const errorData = await response.json();
-          showToast(errorData.error || 'Failed to place order', 'error');
+          showToast(data.error || 'Failed to place order', 'error');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Place Order';
         }
       } catch (error) {
         console.error('Error placing order:', error);
         showToast('Network error. Please try again.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Place Order';
       }
     });
 
     function showToast(message, type = 'success') {
       const toast = document.getElementById('checkout-toast');
+      if (!toast) return;
       toast.textContent = message;
       toast.className = `toast show ${type}`;
       setTimeout(() => {
