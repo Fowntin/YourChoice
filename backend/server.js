@@ -75,7 +75,7 @@ const orderSchema = new mongoose.Schema({
   ],
   total: Number,
   status: { type: String, default: 'Pending', enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'] },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  userId: { type: mongoose.Schema.Types.Mixed },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -152,18 +152,65 @@ async function createInitialAdmin() {
   }
 }
 
+const targetDbName = process.env.MONGODB_DB_NAME || 'yourchoice';
+
+// Synchronize legacy records from the default 'test' database into the dedicated target database
+async function syncLegacyTestData() {
+  try {
+    if (!mongoose.connection || !mongoose.connection.client) return;
+    const currentDbName = mongoose.connection.name;
+    if (currentDbName === 'test') return;
+
+    const targetDb = mongoose.connection.db;
+    const testDb = mongoose.connection.client.db('test');
+
+    // 1. Sync legacy orders from 'test' into target DB without duplicating existing records
+    const testOrders = await testDb.collection('orders').find({}).toArray();
+    if (testOrders.length > 0) {
+      const existingTargetIds = new Set(
+        (await targetDb.collection('orders').find({}, { projection: { _id: 1 } }).toArray())
+          .map(doc => doc._id.toString())
+      );
+      const missingOrders = testOrders.filter(doc => !existingTargetIds.has(doc._id.toString()));
+      if (missingOrders.length > 0) {
+        await targetDb.collection('orders').insertMany(missingOrders);
+        console.log(`📦 Merged ${missingOrders.length} legacy orders from 'test' into '${currentDbName}' database`);
+      }
+    }
+
+    // 2. Sync legacy users from 'test' into target DB
+    const testUsers = await testDb.collection('users').find({}).toArray();
+    if (testUsers.length > 0) {
+      const existingTargetUsernames = new Set(
+        (await targetDb.collection('users').find({}, { projection: { username: 1 } }).toArray())
+          .map(u => u.username)
+      );
+      const missingUsers = testUsers.filter(u => !existingTargetUsernames.has(u.username));
+      if (missingUsers.length > 0) {
+        await targetDb.collection('users').insertMany(missingUsers);
+        console.log(`👥 Merged ${missingUsers.length} legacy users from 'test' into '${currentDbName}' database`);
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ Legacy database sync skipped:', err.message);
+  }
+}
+
 // MongoDB connection (skip when running tests or if no valid URI provided)
 if (process.env.NODE_ENV !== 'test') {
   const mongoURI = process.env.MONGODB_URI;
   if (mongoURI && mongoURI.trim() !== '' && !mongoURI.includes('your-mongodb-connection-string')) {
     mongoose.set('bufferCommands', false);
     mongoose.connect(mongoURI, {
+      dbName: targetDbName,
       serverSelectionTimeoutMS: 5000
     })
-      .then(() => {
+      .then(async () => {
         isMongoConnected = true;
-        console.log('✅ MongoDB connected');
-        createInitialAdmin();
+        const activeDb = mongoose.connection.name || targetDbName;
+        console.log(`✅ MongoDB connected to database: '${activeDb}'`);
+        await syncLegacyTestData();
+        await createInitialAdmin();
       })
       .catch((err) => {
         isMongoConnected = false;
@@ -269,9 +316,19 @@ app.post('/api/users/login', async (req, res) => {
 app.get('/api/users/:userId/orders', async (req, res) => {
   try {
     const { userId } = req.params;
-    const emailParam = (req.query.email || '').toLowerCase();
+    const emailParam = (req.query.email || '').trim().toLowerCase();
     if (isMongoConnected) {
-      const filter = emailParam ? { $or: [{ userId }, { email: emailParam }] } : { userId };
+      const orConditions = [];
+      if (userId) {
+        orConditions.push({ userId: String(userId) });
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+          orConditions.push({ userId: new mongoose.Types.ObjectId(userId) });
+        }
+      }
+      if (emailParam) {
+        orConditions.push({ email: { $regex: new RegExp(`^${emailParam}$`, 'i') } });
+      }
+      const filter = orConditions.length > 1 ? { $or: orConditions } : (orConditions[0] || {});
       const orders = await Order.find(filter).sort({ createdAt: -1 });
       return res.json(orders);
     }
@@ -295,10 +352,17 @@ app.get('/api/user/orders', async (req, res) => {
     }
 
     if (isMongoConnected) {
-      const conditions = [];
-      if (userId) conditions.push({ userId });
-      if (email) conditions.push({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
-      const query = conditions.length > 1 ? { $or: conditions } : conditions[0];
+      const orConditions = [];
+      if (userId) {
+        orConditions.push({ userId: String(userId) });
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+          orConditions.push({ userId: new mongoose.Types.ObjectId(userId) });
+        }
+      }
+      if (email) {
+        orConditions.push({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
+      }
+      const query = orConditions.length > 1 ? { $or: orConditions } : (orConditions[0] || {});
       const orders = await Order.find(query).sort({ createdAt: -1 });
       return res.json(orders);
     }
@@ -509,8 +573,17 @@ app.put('/api/admin/orders/:id', authenticateAdmin, async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     if (isMongoConnected) {
-      const order = await Order.findByIdAndUpdate(id, { status }, { new: true });
+      let order = null;
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        order = await Order.findByIdAndUpdate(id, { status }, { new: true });
+      }
       if (!order) {
+        // Fallback to checking in-memory orders if hybrid or seed order
+        const memOrder = inMemory.orders.find(o => o._id === id);
+        if (memOrder) {
+          memOrder.status = status;
+          return res.json(memOrder);
+        }
         return res.status(404).json({ error: 'Order not found' });
       }
       return res.json(order);
@@ -522,7 +595,8 @@ app.put('/api/admin/orders/:id', authenticateAdmin, async (req, res) => {
     }
     order.status = status;
     res.json(order);
-  } catch {
+  } catch (err) {
+    console.error('Update order error:', err);
     res.status(500).json({ error: 'Failed to update order' });
   }
 });
@@ -564,6 +638,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     database: isMongoConnected ? 'connected' : 'in-memory-fallback',
+    dbName: isMongoConnected ? (mongoose.connection.name || targetDbName) : 'in-memory',
     timestamp: new Date().toISOString()
   });
 });
