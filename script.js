@@ -624,12 +624,13 @@ function getCarouselLayout() {
   const container = track ? track.parentElement : null;
   const containerWidth = container ? container.clientWidth : (window.innerWidth || 360);
   const screenWidth = window.innerWidth;
-  const isMobile = screenWidth < 768;
+  const isMobile = screenWidth < 641;
+  const isTablet = screenWidth >= 641 && screenWidth <= 1024;
 
   let computedSlidesPerView = 4;
-  if (screenWidth < 768) {
+  if (isMobile) {
     computedSlidesPerView = 1;
-  } else if (screenWidth < 1024) {
+  } else if (isTablet) {
     computedSlidesPerView = 2;
   } else if (screenWidth < 1200) {
     computedSlidesPerView = 3;
@@ -645,7 +646,7 @@ function getCarouselLayout() {
     cardWidth = Math.min(Math.round(containerWidth * 0.84), 360);
     centerOffset = Math.round((containerWidth - cardWidth) / 2);
   } else {
-    gap = screenWidth < 1024 ? 20 : 32;
+    gap = isTablet ? 20 : 32;
     const totalGaps = (computedSlidesPerView - 1) * gap;
     cardWidth = Math.max(Math.round((containerWidth - totalGaps) / computedSlidesPerView), 220);
     centerOffset = 0;
@@ -653,6 +654,7 @@ function getCarouselLayout() {
 
   return {
     isMobile,
+    isTablet,
     slidesPerView: computedSlidesPerView,
     cardWidth,
     gap,
@@ -673,6 +675,10 @@ function applyCarouselCardDimensions() {
     card.style.minWidth = `${cardWidth}px`;
     card.style.maxWidth = `${cardWidth}px`;
     card.style.flexShrink = '0';
+    card.style.height = '100%';
+    card.style.display = 'flex';
+    card.style.flexDirection = 'column';
+    card.style.justifyContent = 'space-between';
   });
 }
 
@@ -681,9 +687,10 @@ function updateActiveCardClasses(slideIndex) {
   if (!track) return;
   const cards = track.querySelectorAll('.product-card');
   if (!cards.length) return;
+  const { isMobile } = getCarouselLayout();
 
   cards.forEach((card, idx) => {
-    if (idx === slideIndex) {
+    if (isMobile && idx === slideIndex) {
       card.classList.add('carousel-card-focused');
       card.setAttribute('aria-current', 'true');
     } else {
@@ -949,17 +956,9 @@ function displayTrendingProducts() {
   
   totalSlides = trendingProducts.length;
   
-  // Calculate slides per view based on screen size
-  const screenWidth = window.innerWidth;
-  if (screenWidth < 768) {
-    slidesPerView = 1;
-  } else if (screenWidth < 1024) {
-    slidesPerView = 2;
-  } else if (screenWidth < 1200) {
-    slidesPerView = 3;
-  } else {
-    slidesPerView = 4;
-  }
+  // Calculate slides per view based on responsive layout helper
+  const layout = getCarouselLayout();
+  slidesPerView = layout.slidesPerView;
 
   // If there are more trending products than visible slides, build infinite cloned buffer
   if (totalSlides > slidesPerView) {

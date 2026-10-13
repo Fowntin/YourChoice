@@ -1305,18 +1305,6 @@ footer {
     font-size: 1.5rem;
   }
   
-  .carousel-track .product-card {
-    opacity: 0.88;
-    transform: scale(0.97);
-  }
-
-  .carousel-track .product-card.carousel-card-focused {
-    opacity: 1;
-    transform: scale(1.02);
-    box-shadow: 0 14px 28px -6px rgba(0, 0, 0, 0.16);
-    z-index: 2;
-  }
-  
   .carousel-btn {
     width: 44px;
     height: 44px;
@@ -1333,6 +1321,114 @@ footer {
     right: 6px;
   }
 }
+
+/* Dedicated Mobile Carousel Focal Framing (strictly <= 640px) */
+@media screen and (max-width: 640px) {
+  .carousel-track .product-card {
+    opacity: 0.88;
+    transform: scale(0.97);
+  }
+
+  .carousel-track .product-card.carousel-card-focused {
+    opacity: 1;
+    transform: scale(1.02);
+    box-shadow: 0 14px 28px -6px rgba(0, 0, 0, 0.16);
+    z-index: 2;
+  }
+}
+
+/* Tablet Carousel Equalized Heights & Geometry (641px - 1024px) */
+@media screen and (min-width: 641px) and (max-width: 1024px) {
+  .trending-products {
+    padding: 2.5rem 1.25rem !important;
+  }
+
+  .carousel-container {
+    max-width: 100% !important;
+    padding: 0.5rem 0 !important;
+  }
+
+  .carousel-track {
+    align-items: stretch !important;
+  }
+
+  /* Equalized card heights, clean neutral scale across all visible tablet cards */
+  .carousel-track .product-card {
+    opacity: 1 !important;
+    transform: none !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+  }
+
+  .carousel-track .product-card.carousel-card-focused {
+    opacity: 1 !important;
+    transform: none !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  /* Standardized image slot geometry on tablet */
+  .carousel-track .product-image-wrap {
+    height: 170px !important;
+    min-height: 170px !important;
+    max-height: 170px !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .carousel-track .product-image-wrap img {
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  .carousel-track .product-card-body {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-grow: 1 !important;
+    justify-content: flex-start !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  /* Standardized 2-line title slot */
+  .carousel-track .product-card h3 {
+    font-size: 1rem !important;
+    line-height: 1.35 !important;
+    min-height: 2.7em !important;
+    max-height: 2.7em !important;
+    margin-bottom: 0.35rem !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+  }
+
+  /* Standardized feature slot */
+  .carousel-track .product-features {
+    min-height: 26px !important;
+    max-height: 26px !important;
+    height: 26px !important;
+    margin-bottom: 0.35rem !important;
+    overflow: hidden !important;
+  }
+
+  /* Standardized price slot */
+  .carousel-track .product-price-row {
+    min-height: 28px !important;
+    height: 28px !important;
+    margin-bottom: 0.35rem !important;
+  }
+
+  /* Bottom-anchored add to cart button */
+  .carousel-track .product-card .add-to-cart-btn {
+    margin-top: auto !important;
+    width: 100% !important;
+    min-height: 44px !important;
+    font-size: 0.95rem !important;
+  }
+}
+
 
 @media screen and (max-width: 480px) {
   .category-filter {
@@ -3817,9 +3913,11 @@ body {
     touch-action: manipulation !important;
   }
 
-  /* Trending Carousel Mobile Optimization */
-  .trending-products {
-    padding: 2rem 0.5rem !important;
+  /* Trending Carousel Mobile Optimization (Mobile only <= 640px) */
+  @media (max-width: 640px) {
+    .trending-products {
+      padding: 2rem 0.5rem !important;
+    }
   }
 
   .carousel-btn {
