@@ -265,19 +265,54 @@ app.post('/api/users/login', async (req, res) => {
   }
 });
 
-// Get user's orders
+// Get user's orders by route param
 app.get('/api/users/:userId/orders', async (req, res) => {
   try {
     const { userId } = req.params;
+    const emailParam = (req.query.email || '').toLowerCase();
     if (isMongoConnected) {
-      const orders = await Order.find({ userId }).sort({ createdAt: -1 });
+      const filter = emailParam ? { $or: [{ userId }, { email: emailParam }] } : { userId };
+      const orders = await Order.find(filter).sort({ createdAt: -1 });
       return res.json(orders);
     }
-    const orders = inMemory.orders.filter(o => o.userId === userId);
+    const orders = inMemory.orders.filter(o => 
+      o.userId === userId || (emailParam && o.email && o.email.toLowerCase() === emailParam)
+    );
     res.json(orders);
   } catch (err) {
     console.error('Get user orders error:', err);
     res.status(500).json({ error: 'Failed to fetch orders.' });
+  }
+});
+
+// Dedicated customer orders endpoint: GET /api/user/orders?userId=...&email=...
+app.get('/api/user/orders', async (req, res) => {
+  try {
+    const userId = (req.query.userId || '').trim();
+    const email = (req.query.email || '').trim().toLowerCase();
+    if (!userId && !email) {
+      return res.status(400).json({ error: 'User identifier or email required.' });
+    }
+
+    if (isMongoConnected) {
+      const conditions = [];
+      if (userId) conditions.push({ userId });
+      if (email) conditions.push({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
+      const query = conditions.length > 1 ? { $or: conditions } : conditions[0];
+      const orders = await Order.find(query).sort({ createdAt: -1 });
+      return res.json(orders);
+    }
+
+    // In-memory fallback
+    const orders = inMemory.orders.filter(o => {
+      const matchId = userId && o.userId === userId;
+      const matchEmail = email && o.email && o.email.toLowerCase() === email;
+      return matchId || matchEmail;
+    });
+    res.json(orders);
+  } catch (err) {
+    console.error('Get user orders error:', err);
+    res.status(500).json({ error: 'Failed to fetch customer orders.' });
   }
 });
 
@@ -294,7 +329,11 @@ app.post('/api/orders', async (req, res) => {
       if (userId) orderData.userId = userId;
       const order = new Order(orderData);
       await order.save();
-      return res.status(201).json({ message: 'Order placed successfully!' });
+      return res.status(201).json({ 
+        message: 'Order placed successfully!', 
+        orderId: order._id,
+        status: order.status || 'Pending' 
+      });
     }
 
     // In-memory fallback
@@ -311,7 +350,11 @@ app.post('/api/orders', async (req, res) => {
       createdAt: new Date().toISOString()
     };
     inMemory.orders.unshift(newOrder);
-    res.status(201).json({ message: 'Order placed successfully!' });
+    res.status(201).json({ 
+      message: 'Order placed successfully!', 
+      orderId: newOrder._id,
+      status: newOrder.status 
+    });
   } catch (err) {
     console.error('Order save error:', err);
     res.status(500).json({ error: 'Failed to place order.' });

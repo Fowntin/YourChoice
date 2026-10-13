@@ -66,5 +66,33 @@ test('Admin Auth & Management lifecycle', async () => {
   assert.ok(newLoginRes.body.token);
 });
 
+test('Customer Order Placement & User Orders Retrieval', async () => {
+  const customerEmail = `shopper_${Date.now()}@example.com`;
+  const orderPayload = {
+    name: 'Jane Shopper',
+    email: customerEmail,
+    phone: '+233 24 000 1122',
+    address: '42 High Street, Accra',
+    items: [{ id: 'p1', name: 'Cotton T-Shirt', price: 45, quantity: 2 }],
+    total: 90,
+    userId: 'usr_jane_123'
+  };
+
+  // 1. Place order
+  const orderRes = await request(app).post('/api/orders').send(orderPayload);
+  assert.equal(orderRes.status, 201);
+  assert.ok(orderRes.body.orderId);
+  assert.equal(orderRes.body.status, 'Pending');
+
+  // 2. Fetch customer orders by email
+  const userOrdersRes = await request(app).get(`/api/user/orders?email=${encodeURIComponent(customerEmail)}`);
+  assert.equal(userOrdersRes.status, 200);
+  assert.ok(Array.isArray(userOrdersRes.body));
+  assert.equal(userOrdersRes.body.length, 1);
+  assert.equal(userOrdersRes.body[0].email, customerEmail);
+  assert.equal(userOrdersRes.body[0].total, 90);
+  assert.equal(userOrdersRes.body[0].status, 'Pending');
+});
+
 
 
