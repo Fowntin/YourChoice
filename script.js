@@ -320,6 +320,7 @@ function updateCartUI() {
     elements.count.textContent = '0';
     elements.total.textContent = formatPrice(0);
     updateCartCountBadges(0);
+    if (typeof updateWishlistBadges === 'function') updateWishlistBadges();
     updateFloatingCartCount();
     saveCartToStorage();
     
@@ -359,6 +360,7 @@ function updateCartUI() {
   elements.count.textContent = itemCount;
   elements.total.textContent = formatPrice(total);
   updateCartCountBadges(itemCount);
+  if (typeof updateWishlistBadges === 'function') updateWishlistBadges();
 
   // Update button states
   updateButtonStates();
@@ -371,7 +373,8 @@ function updateCartUI() {
 }
 
 function updateCartCountBadges(count) {
-  const badges = document.querySelectorAll('.cart-count, .mobile-cart-count, .drawer-cart-count, #cart-count, #floating-cart-count');
+  // Explicitly target dedicated cart badges, ensuring wishlist and order badges are never modified
+  const badges = document.querySelectorAll('#cart-count, .mobile-cart-count, #drawer-cart-count, #floating-cart-count');
   badges.forEach(badge => {
     badge.textContent = count;
   });

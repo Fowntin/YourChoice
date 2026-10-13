@@ -3257,7 +3257,18 @@ body {
 .mobile-wishlist-count {
   position: absolute;
   top: 2px;
-  right: 2px;
+  right: 0px;
+  background-color: #ff6f00;
+  color: #ffffff;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
 }
 
 /* Drawer User Actions */
