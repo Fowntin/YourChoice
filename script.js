@@ -815,7 +815,7 @@ function createCarouselDots(total) {
 
 // Helper to render crisp vector SVG heart icon
 function getWishlistHeartSvg() {
-  return `<svg class="wishlist-heart-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>`;
+  return `<svg class="wishlist-heart-icon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>`;
 }
 
 function createProductCard(product) {
@@ -864,15 +864,21 @@ function createProductCard(product) {
   
   const inWishlist = typeof isWishlisted === 'function' ? isWishlisted(product.id) : false;
   card.innerHTML = `
-    <button type="button" class="wishlist-btn ${inWishlist ? 'active' : ''}" data-product-id="${product.id}" aria-label="${inWishlist ? 'Remove from wishlist' : 'Save to wishlist'}">
-      ${getWishlistHeartSvg()}
-    </button>
-    ${badges}
-    <img src="${product.images[0]}" alt="${product.name}" />
-    <h3>${product.name}</h3>
-    ${featuresDisplay}
-    ${priceDisplay}
-    ${stockInfo}
+    <div class="product-card-header">
+      <div class="product-badges">${badges}</div>
+      <button type="button" class="wishlist-btn ${inWishlist ? 'active' : ''}" data-product-id="${product.id}" aria-label="${inWishlist ? 'Remove from wishlist' : 'Save to wishlist'}">
+        ${getWishlistHeartSvg()}
+      </button>
+    </div>
+    <div class="product-image-wrap">
+      <img src="${product.images[0]}" alt="${product.name}" loading="lazy" />
+    </div>
+    <div class="product-card-body">
+      <h3>${product.name}</h3>
+      ${featuresDisplay}
+      ${priceDisplay}
+      ${stockInfo}
+    </div>
     <button type="button" class="add-to-cart-btn" data-product-id="${product.id}">
       Add to Cart
     </button>
