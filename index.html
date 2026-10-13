@@ -14,35 +14,12 @@
 <header class="navbar">
   <a href="#hero" class="logo">YourChoice</a>
   
-  <!-- Desktop Navigation -->
-  <nav class="desktop-nav">
-    <ul>
-      <li><a href="#hero">Home</a></li>
-      <li><a href="#products">Shop</a></li>
-      <li><a href="#" class="nav-cart-link">🛒 Cart <span id="cart-count" class="cart-count">0</span></a></li>
-      <li><a href="#contact">Contact</a></li>
-      <li id="auth-links">
-        <a href="login.html">Login</a> / <a href="register.html">Register</a>
-      </li>
-      <li id="user-info" class="user-nav-group" style="display: none;">
-        <button id="nav-orders-btn" class="nav-icon-link" type="button" title="View Order History & Tracking">
-          📦 Orders <span id="user-orders-count" class="nav-badge">0</span>
-        </button>
-        <button id="nav-wishlist-btn" class="nav-icon-link" type="button" title="View Saved Wishlist">
-          ❤️ Wishlist <span id="wishlist-count" class="nav-badge">0</span>
-        </button>
-        <span class="user-greeting">Hi, <strong id="user-name">User</strong></span>
-        <a href="#" id="logout-link" class="logout-text-link">Logout</a>
-      </li>
-    </ul>
-  </nav>
-
-  <!-- Mobile Action Buttons -->
+  <!-- Mobile Action Buttons (Visible on mobile viewports for quick reach) -->
   <div class="mobile-actions">
     <button class="mobile-wishlist-btn" id="mobile-wishlist-trigger" aria-label="Open Saved Wishlist" title="Wishlist">
       ❤️<span class="cart-count mobile-wishlist-count" id="mobile-wishlist-count">0</span>
     </button>
-    <button class="mobile-cart-btn" id="mobile-cart-trigger" aria-label="Open Shopping Cart">
+    <button class="mobile-cart-btn" id="mobile-cart-trigger" aria-label="Open Shopping Cart" title="Cart">
       🛒<span class="cart-count mobile-cart-count">0</span>
     </button>
     <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Open Navigation Menu" aria-expanded="false">
@@ -51,44 +28,43 @@
       <span class="hamburger-bar"></span>
     </button>
   </div>
-</header>
 
-<!-- Mobile Navigation Drawer & Backdrop -->
-<div id="mobile-nav-backdrop" class="mobile-nav-backdrop"></div>
-<aside id="mobile-nav-drawer" class="mobile-nav-drawer" aria-label="Mobile Navigation Drawer">
-  <div class="drawer-header">
-    <span class="drawer-logo">YourChoice</span>
-    <button id="close-drawer-btn" class="close-drawer-btn" aria-label="Close menu">&times;</button>
-  </div>
-  <nav class="drawer-nav">
-    <ul>
-      <li><a href="#hero" class="drawer-link"><span class="drawer-icon">🏠</span> Home</a></li>
-      <li><a href="#products" class="drawer-link"><span class="drawer-icon">🛍️</span> Shop Products</a></li>
-      <li><a href="#" class="drawer-link drawer-cart-link" id="drawer-cart-link"><span class="drawer-icon">🛒</span> Shopping Cart (<span class="drawer-cart-count">0</span>)</a></li>
-      <li><a href="#" class="drawer-link drawer-wishlist-link" id="drawer-wishlist-link"><span class="drawer-icon">❤️</span> Saved Wishlist (<span class="drawer-wishlist-count" id="drawer-wishlist-count">0</span>)</a></li>
-      <li><a href="#" class="drawer-link drawer-orders-link" id="drawer-orders-link"><span class="drawer-icon">📦</span> My Orders (<span id="drawer-orders-count">0</span>)</a></li>
-      <li><a href="#contact" class="drawer-link"><span class="drawer-icon">📞</span> Contact Us</a></li>
+  <!-- Unified Navigation: Single DOM Tree for both Desktop and Mobile -->
+  <div id="mobile-nav-backdrop" class="mobile-nav-backdrop"></div>
+  <nav class="site-nav" id="mobile-nav-drawer" aria-label="Main Navigation">
+    <div class="drawer-header">
+      <span class="drawer-logo">YourChoice</span>
+      <button id="close-drawer-btn" class="close-drawer-btn" aria-label="Close menu">&times;</button>
+    </div>
+    <ul class="nav-links">
+      <li><a href="#hero" class="nav-link"><span class="drawer-icon">🏠</span> Home</a></li>
+      <li><a href="#products" class="nav-link"><span class="drawer-icon">🛍️</span> Shop</a></li>
+      <li>
+        <a href="#" class="nav-link nav-cart-link" id="nav-cart-btn">
+          <span class="drawer-icon">🛒</span> Cart <span id="cart-count" class="cart-count">0</span>
+        </a>
+      </li>
+      <li>
+        <button id="nav-wishlist-btn" class="nav-link nav-btn-link" type="button" title="View Saved Wishlist">
+          <span class="drawer-icon">❤️</span> Wishlist <span id="wishlist-count" class="nav-badge">0</span>
+        </button>
+      </li>
+      <li id="nav-orders-item" class="nav-orders-item" style="display: none;">
+        <button id="nav-orders-btn" class="nav-link nav-btn-link" type="button" title="View Order History & Tracking">
+          <span class="drawer-icon">📦</span> My Orders <span id="user-orders-count" class="nav-badge">0</span>
+        </button>
+      </li>
+      <li><a href="#contact" class="nav-link"><span class="drawer-icon">📞</span> Contact</a></li>
+      <li id="auth-links" class="nav-auth-item">
+        <a href="login.html" class="nav-auth-link">Login</a> <span class="nav-auth-sep">/</span> <a href="register.html" class="nav-auth-link">Register</a>
+      </li>
+      <li id="user-info" class="user-nav-group" style="display: none;">
+        <span class="user-greeting">Hi, <strong id="user-name">User</strong></span>
+        <button id="logout-link" class="logout-text-link" type="button">Logout</button>
+      </li>
     </ul>
   </nav>
-  <div class="drawer-footer">
-    <div id="drawer-auth-links" class="drawer-auth-links">
-      <a href="login.html" class="drawer-btn drawer-btn-secondary">Log In</a>
-      <a href="register.html" class="drawer-btn drawer-btn-primary">Register</a>
-    </div>
-    <div id="drawer-user-info" class="drawer-user-info" style="display: none;">
-      <p class="drawer-user-greeting">Signed in as <strong id="drawer-user-name">User</strong></p>
-      <div class="drawer-user-actions">
-        <button id="drawer-orders-btn" class="drawer-user-btn" type="button">
-          📦 My Orders (<span id="drawer-footer-orders-count">0</span>)
-        </button>
-        <button id="drawer-wishlist-btn" class="drawer-user-btn" type="button">
-          ❤️ Wishlist (<span id="drawer-footer-wishlist-count">0</span>)
-        </button>
-      </div>
-      <button id="drawer-logout-btn" class="drawer-btn drawer-btn-logout">Log Out</button>
-    </div>
-  </div>
-</aside>
+</header>
 
   <section class="hero" id="hero">
     <h1>Welcome to YourChoice</h1>
@@ -217,37 +193,29 @@
   <script src="src/products.js"></script>
   <script src="script.js"></script>
   <script>
-    // Check user authentication status (syncs desktop and mobile drawer)
+    // Check user authentication status (unified navigation)
     function checkAuthStatus() {
-      const userLoggedIn = localStorage.getItem('userLoggedIn');
+      const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       
       const authLinks = document.getElementById('auth-links');
       const userInfo = document.getElementById('user-info');
       const userName = document.getElementById('user-name');
-
-      const drawerAuth = document.getElementById('drawer-auth-links');
-      const drawerUser = document.getElementById('drawer-user-info');
-      const drawerName = document.getElementById('drawer-user-name');
+      const ordersItem = document.getElementById('nav-orders-item');
       
-      if (userLoggedIn && user.name) {
+      if (userLoggedIn && (user.name || user.username)) {
         if (authLinks) authLinks.style.display = 'none';
-        if (userInfo) userInfo.style.display = 'inline';
-        if (userName) userName.textContent = user.name;
-
-        if (drawerAuth) drawerAuth.style.display = 'none';
-        if (drawerUser) drawerUser.style.display = 'block';
-        if (drawerName) drawerName.textContent = user.name;
+        if (userInfo) userInfo.style.display = 'flex';
+        if (userName) userName.textContent = user.name || user.username;
+        if (ordersItem) ordersItem.style.display = 'list-item';
       } else {
-        if (authLinks) authLinks.style.display = 'inline';
+        if (authLinks) authLinks.style.display = 'flex';
         if (userInfo) userInfo.style.display = 'none';
-
-        if (drawerAuth) drawerAuth.style.display = 'grid';
-        if (drawerUser) drawerUser.style.display = 'none';
+        if (ordersItem) ordersItem.style.display = 'none';
       }
     }
     
-    // Handle logout for both desktop and mobile drawer
+    // Handle logout
     function handleLogout(e) {
       if (e) e.preventDefault();
       localStorage.removeItem('userLoggedIn');
@@ -258,9 +226,6 @@
 
     const logoutLink = document.getElementById('logout-link');
     if (logoutLink) logoutLink.addEventListener('click', handleLogout);
-
-    const drawerLogoutBtn = document.getElementById('drawer-logout-btn');
-    if (drawerLogoutBtn) drawerLogoutBtn.addEventListener('click', handleLogout);
     
     // Check auth status on page load
     checkAuthStatus();
