@@ -1065,6 +1065,26 @@ function setupCategoryFilter() {
       filterButtons.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
 
+      // Auto-scroll active pill into horizontal center view in segmented track
+      if (typeof button.scrollIntoView === 'function') {
+        button.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+
+      // Smooth scroll viewport to products top if already scrolled past or docked
+      const stickyHeader = document.querySelector('.products-header-sticky');
+      const navbar = document.querySelector('.navbar');
+      const navHeight = navbar ? navbar.offsetHeight : 64;
+      if (stickyHeader) {
+        const rect = stickyHeader.getBoundingClientRect();
+        if (rect.top <= navHeight + 8) {
+          const targetTop = window.scrollY + rect.top - navHeight;
+          window.scrollTo({
+            top: Math.max(0, targetTop),
+            behavior: 'smooth'
+          });
+        }
+      }
+
       if (category === 'all') {
         selectedCategories.clear();
         displayProducts(products);
@@ -1128,9 +1148,10 @@ window.addEventListener('DOMContentLoaded', () => {
     displayTrendingProducts();
   }
   
-  // Setup category filtering
+  // Setup category filtering & sticky navigation
   if (document.getElementById('category-filter')) {
     setupCategoryFilter();
+    setupStickyCategoryNav();
   }
   
   // Setup responsive carousel

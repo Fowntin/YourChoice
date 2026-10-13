@@ -7,11 +7,11 @@
 
 html {
   scroll-behavior: smooth;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 #hero, #products, #contact {
-  scroll-margin-top: 80px;
+  scroll-margin-top: 130px;
 }
 
 /* Body and container */
@@ -21,7 +21,7 @@ body {
   color: #1e293b;
   line-height: 1.6;
   min-height: 100vh;
-  overflow-x: hidden;
+  overflow-x: clip;
   padding-top: 0;
   -webkit-font-smoothing: antialiased;
 }
@@ -982,16 +982,34 @@ footer {
   margin: 0 auto;
 }
 
+/* Hardware-Accelerated Sticky Navigation Sentinel */
+.sticky-nav-sentinel {
+  height: 1px;
+  width: 100%;
+  pointer-events: none;
+  visibility: hidden;
+  margin-top: -1px;
+}
+
 .products-header-sticky {
   position: sticky;
   top: 64px;
   z-index: 120;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   padding: 1rem 2rem;
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease;
+  will-change: box-shadow, background-color;
+}
+
+.products-header-sticky.is-stuck {
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08);
 }
 
 .products-header-inner {
@@ -3813,6 +3831,11 @@ body {
   .products-header-sticky {
     top: 56px !important;
     padding: 0.75rem 1rem !important;
+  }
+
+  .products-header-sticky.is-stuck {
+    box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.1) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
   }
 
   .products-header-inner {
