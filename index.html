@@ -24,14 +24,24 @@
       <li id="auth-links">
         <a href="login.html">Login</a> / <a href="register.html">Register</a>
       </li>
-      <li id="user-info" style="display: none;">
-        <span id="user-name"></span> | <a href="#" id="logout-link">Logout</a>
+      <li id="user-info" class="user-nav-group" style="display: none;">
+        <button id="nav-orders-btn" class="nav-icon-link" type="button" title="View Order History & Tracking">
+          📦 Orders <span id="user-orders-count" class="nav-badge">0</span>
+        </button>
+        <button id="nav-wishlist-btn" class="nav-icon-link" type="button" title="View Saved Wishlist">
+          ❤️ Wishlist <span id="wishlist-count" class="nav-badge">0</span>
+        </button>
+        <span class="user-greeting">Hi, <strong id="user-name">User</strong></span>
+        <a href="#" id="logout-link" class="logout-text-link">Logout</a>
       </li>
     </ul>
   </nav>
 
   <!-- Mobile Action Buttons -->
   <div class="mobile-actions">
+    <button class="mobile-wishlist-btn" id="mobile-wishlist-trigger" aria-label="Open Saved Wishlist" title="Wishlist">
+      ❤️<span class="cart-count mobile-wishlist-count" id="mobile-wishlist-count">0</span>
+    </button>
     <button class="mobile-cart-btn" id="mobile-cart-trigger" aria-label="Open Shopping Cart">
       🛒<span class="cart-count mobile-cart-count">0</span>
     </button>
@@ -55,6 +65,8 @@
       <li><a href="#hero" class="drawer-link"><span class="drawer-icon">🏠</span> Home</a></li>
       <li><a href="#products" class="drawer-link"><span class="drawer-icon">🛍️</span> Shop Products</a></li>
       <li><a href="#" class="drawer-link drawer-cart-link" id="drawer-cart-link"><span class="drawer-icon">🛒</span> Shopping Cart (<span class="drawer-cart-count">0</span>)</a></li>
+      <li><a href="#" class="drawer-link drawer-wishlist-link" id="drawer-wishlist-link"><span class="drawer-icon">❤️</span> Saved Wishlist (<span class="drawer-wishlist-count" id="drawer-wishlist-count">0</span>)</a></li>
+      <li><a href="#" class="drawer-link drawer-orders-link" id="drawer-orders-link"><span class="drawer-icon">📦</span> My Orders (<span id="drawer-orders-count">0</span>)</a></li>
       <li><a href="#contact" class="drawer-link"><span class="drawer-icon">📞</span> Contact Us</a></li>
     </ul>
   </nav>
@@ -65,6 +77,14 @@
     </div>
     <div id="drawer-user-info" class="drawer-user-info" style="display: none;">
       <p class="drawer-user-greeting">Signed in as <strong id="drawer-user-name">User</strong></p>
+      <div class="drawer-user-actions">
+        <button id="drawer-orders-btn" class="drawer-user-btn" type="button">
+          📦 My Orders (<span id="drawer-footer-orders-count">0</span>)
+        </button>
+        <button id="drawer-wishlist-btn" class="drawer-user-btn" type="button">
+          ❤️ Wishlist (<span id="drawer-footer-wishlist-count">0</span>)
+        </button>
+      </div>
       <button id="drawer-logout-btn" class="drawer-btn drawer-btn-logout">Log Out</button>
     </div>
   </div>
@@ -159,6 +179,38 @@
       <button id="checkout-btn" class="checkout-btn">Proceed to Checkout</button>
       <button id="clear-cart-btn" class="clear-cart">Clear Cart</button>
     </div>
+  </div>
+</div>
+
+<!-- Customer Orders & Tracking Modal -->
+<div id="orders-overlay" class="customer-overlay"></div>
+<div id="user-orders-modal" class="customer-sheet-modal" role="dialog" aria-modal="true" aria-labelledby="user-orders-modal-title">
+  <div class="sheet-drag-handle" aria-hidden="true"></div>
+  <div class="customer-sheet-header">
+    <div>
+      <h2 id="user-orders-modal-title">📦 My Orders & Tracking</h2>
+      <p class="customer-sheet-subtitle">Real-time status updates and delivery receipts</p>
+    </div>
+    <button id="close-user-orders-btn" class="close-modal-icon" aria-label="Close orders">&times;</button>
+  </div>
+  <div class="customer-sheet-body" id="user-orders-modal-body">
+    <div class="empty-modal-state">Sign in to view your orders and track live deliveries.</div>
+  </div>
+</div>
+
+<!-- Customer Wishlist Modal -->
+<div id="wishlist-overlay" class="customer-overlay"></div>
+<div id="wishlist-modal" class="customer-sheet-modal" role="dialog" aria-modal="true" aria-labelledby="wishlist-modal-title">
+  <div class="sheet-drag-handle" aria-hidden="true"></div>
+  <div class="customer-sheet-header">
+    <div>
+      <h2 id="wishlist-modal-title">❤️ My Saved Wishlist</h2>
+      <p class="customer-sheet-subtitle">Favourites saved to your account</p>
+    </div>
+    <button id="close-wishlist-btn" class="close-modal-icon" aria-label="Close wishlist">&times;</button>
+  </div>
+  <div class="customer-sheet-body" id="wishlist-modal-body">
+    <div class="empty-modal-state">Your wishlist is currently empty. Tap the heart on products to save them!</div>
   </div>
 </div>
 

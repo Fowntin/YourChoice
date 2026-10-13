@@ -740,7 +740,11 @@ function createProductCard(product) {
     featuresDisplay += '</div>';
   }
   
+  const inWishlist = typeof isWishlisted === 'function' ? isWishlisted(product.id) : false;
   card.innerHTML = `
+    <button type="button" class="wishlist-btn ${inWishlist ? 'active' : ''}" data-product-id="${product.id}" aria-label="${inWishlist ? 'Remove from wishlist' : 'Save to wishlist'}">
+      ${inWishlist ? '❤️' : '🤍'}
+    </button>
     ${badges}
     <img src="${product.images[0]}" alt="${product.name}" />
     <h3>${product.name}</h3>
@@ -758,6 +762,16 @@ function createProductCard(product) {
     addBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       addToCart(product);
+    });
+  }
+
+  const wishBtn = card.querySelector('.wishlist-btn');
+  if (wishBtn) {
+    wishBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof toggleWishlist === 'function') {
+        toggleWishlist(product);
+      }
     });
   }
   
@@ -1009,6 +1023,67 @@ window.addEventListener('DOMContentLoaded', () => {
     if (prevBtn) prevBtn.addEventListener('click', () => pauseAndResumeAutoSlide());
     if (nextBtn) nextBtn.addEventListener('click', () => pauseAndResumeAutoSlide());
   }
+
+  // Initialize wishlist badges and customer order count
+  updateWishlistBadges();
+  loadUserOrders();
+
+  // Setup Wishlist Modal Triggers
+  const wishlistTriggers = [
+    'nav-wishlist-btn',
+    'mobile-wishlist-trigger',
+    'drawer-wishlist-btn',
+    'drawer-wishlist-link'
+  ];
+  wishlistTriggers.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (typeof closeMobileDrawer === 'function') closeMobileDrawer();
+        openWishlistModal();
+      });
+    }
+  });
+
+  const closeWishlistBtn = document.getElementById('close-wishlist-btn');
+  if (closeWishlistBtn) closeWishlistBtn.addEventListener('click', closeWishlistModal);
+
+  const wishlistOverlay = document.getElementById('wishlist-overlay');
+  if (wishlistOverlay) wishlistOverlay.addEventListener('click', closeWishlistModal);
+
+  // Setup Customer Orders Modal Triggers
+  const ordersTriggers = [
+    'nav-orders-btn',
+    'drawer-orders-btn',
+    'drawer-orders-link'
+  ];
+  ordersTriggers.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (typeof closeMobileDrawer === 'function') closeMobileDrawer();
+        openUserOrdersModal();
+      });
+    }
+  });
+
+  const closeOrdersBtn = document.getElementById('close-user-orders-btn');
+  if (closeOrdersBtn) closeOrdersBtn.addEventListener('click', closeUserOrdersModal);
+
+  const ordersOverlay = document.getElementById('orders-overlay');
+  if (ordersOverlay) ordersOverlay.addEventListener('click', closeUserOrdersModal);
+
+  // Check if an order was just completed and display status toast
+  const justPlacedId = sessionStorage.getItem('justPlacedOrderId');
+  if (justPlacedId) {
+    sessionStorage.removeItem('justPlacedOrderId');
+    setTimeout(() => {
+      showToast(`Order placed! Tap "📦 Orders" to track live delivery.`, 'success');
+      loadUserOrders();
+    }, 400);
+  }
 });
 
 // Helper function to get cart elements
@@ -1024,6 +1099,268 @@ function getCartElements() {
 // Helper function to format price
 function formatPrice(price) {
   return `GH₵ ${price.toFixed(2)}`;
+}
+
+// ========================================
+// CUSTOMER WISHLIST MANAGEMENT
+// ========================================
+
+function getWishlist() {
+  try {
+    return JSON.parse(localStorage.getItem('userWishlist') || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveWishlist(list) {
+  try {
+    localStorage.setItem('userWishlist', JSON.stringify(list));
+    updateWishlistBadges();
+  } catch (e) {
+    console.error('Failed to save wishlist:', e);
+  }
+}
+
+function isWishlisted(productId) {
+  const list = getWishlist();
+  return list.some(item => item.id === productId);
+}
+
+function toggleWishlist(product) {
+  let list = getWishlist();
+  const index = list.findIndex(item => item.id === product.id);
+  
+  if (index >= 0) {
+    list.splice(index, 1);
+    saveWishlist(list);
+    showToast(`Removed ${product.name} from wishlist`, 'info');
+  } else {
+    list.push({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: (product.images && product.images[0]) || '',
+      currency: product.currency || 'GH₵'
+    });
+    saveWishlist(list);
+    showToast(`Saved ${product.name} to wishlist ❤️`, 'success');
+  }
+
+  // Synchronize all matching wishlist buttons across the page
+  document.querySelectorAll(`.wishlist-btn[data-product-id="${product.id}"]`).forEach(btn => {
+    const active = isWishlisted(product.id);
+    btn.classList.toggle('active', active);
+    btn.textContent = active ? '❤️' : '🤍';
+    btn.setAttribute('aria-label', active ? 'Remove from wishlist' : 'Save to wishlist');
+  });
+
+  const modal = document.getElementById('wishlist-modal');
+  if (modal && modal.classList.contains('show')) {
+    renderWishlistModal();
+  }
+}
+
+function updateWishlistBadges() {
+  const count = getWishlist().length;
+  const badges = document.querySelectorAll('#wishlist-count, #mobile-wishlist-count, #drawer-wishlist-count, #drawer-footer-wishlist-count');
+  badges.forEach(b => {
+    b.textContent = count;
+  });
+}
+
+function openWishlistModal() {
+  const modal = document.getElementById('wishlist-modal');
+  const overlay = document.getElementById('wishlist-overlay');
+  if (!modal || !overlay) return;
+
+  renderWishlistModal();
+  modal.classList.add('show');
+  overlay.classList.add('show');
+}
+
+function closeWishlistModal() {
+  const modal = document.getElementById('wishlist-modal');
+  const overlay = document.getElementById('wishlist-overlay');
+  if (modal) modal.classList.remove('show');
+  if (overlay) overlay.classList.remove('show');
+}
+
+function renderWishlistModal() {
+  const body = document.getElementById('wishlist-modal-body');
+  if (!body) return;
+  const list = getWishlist();
+
+  if (list.length === 0) {
+    body.innerHTML = `
+      <div class="empty-customer-state">
+        <span class="empty-state-icon">🤍</span>
+        <h3>Your wishlist is empty</h3>
+        <p>Explore our catalog and tap the heart icon on any product to save it for later.</p>
+        <button type="button" class="btn-customer-primary" onclick="closeWishlistModal()">Browse Products</button>
+      </div>
+    `;
+    return;
+  }
+
+  body.innerHTML = `
+    <div class="wishlist-items-grid">
+      ${list.map(item => `
+        <div class="wishlist-item-card" data-id="${item.id}">
+          <img src="${item.image || 'https://via.placeholder.com/150'}" alt="${item.name}" class="wishlist-thumb" />
+          <div class="wishlist-info">
+            <h4 class="wishlist-name">${item.name}</h4>
+            <div class="wishlist-price">${item.currency || 'GH₵'} ${(Number(item.price) || 0).toFixed(2)}</div>
+          </div>
+          <div class="wishlist-item-actions">
+            <button type="button" class="btn-wishlist-add-cart" data-id="${item.id}">Add to Cart</button>
+            <button type="button" class="btn-wishlist-remove" data-id="${item.id}" aria-label="Remove item">🗑️</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  // Attach event listeners for Add to Cart and Remove in modal
+  body.querySelectorAll('.btn-wishlist-add-cart').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-id');
+      const product = (typeof products !== 'undefined' ? products : []).find(p => p.id === id);
+      if (product) {
+        addToCart(product);
+        showToast(`Moved ${product.name} to cart!`, 'success');
+      }
+    });
+  });
+
+  body.querySelectorAll('.btn-wishlist-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-id');
+      const item = list.find(i => i.id === id);
+      if (item) {
+        toggleWishlist(item);
+      }
+    });
+  });
+}
+
+// ========================================
+// CUSTOMER ORDERS & LIVE TRACKING
+// ========================================
+
+async function loadUserOrders() {
+  const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const badges = document.querySelectorAll('#user-orders-count, #drawer-orders-count, #drawer-footer-orders-count');
+
+  if (!userLoggedIn || (!user.id && !user.email)) {
+    badges.forEach(b => b.textContent = '0');
+    return [];
+  }
+
+  try {
+    const params = new URLSearchParams();
+    if (user.id) params.set('userId', user.id);
+    if (user.email) params.set('email', user.email);
+
+    const response = await fetch(`/api/user/orders?${params.toString()}`);
+    if (response.ok) {
+      const orders = await response.json();
+      const count = Array.isArray(orders) ? orders.length : 0;
+      badges.forEach(b => b.textContent = count);
+      return orders;
+    }
+  } catch (err) {
+    console.warn('Could not load user orders:', err);
+  }
+  return [];
+}
+
+async function openUserOrdersModal() {
+  const modal = document.getElementById('user-orders-modal');
+  const overlay = document.getElementById('orders-overlay');
+  const body = document.getElementById('user-orders-modal-body');
+  if (!modal || !overlay || !body) return;
+
+  modal.classList.add('show');
+  overlay.classList.add('show');
+
+  const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+  if (!userLoggedIn) {
+    body.innerHTML = `
+      <div class="empty-customer-state">
+        <span class="empty-state-icon">🔒</span>
+        <h3>Please Sign In</h3>
+        <p>Log in with your customer account to view your past purchases and track real-time delivery status.</p>
+        <a href="login.html" class="btn-customer-primary">Sign In Now</a>
+      </div>
+    `;
+    return;
+  }
+
+  body.innerHTML = '<div class="empty-modal-state">Fetching your orders...</div>';
+  const orders = await loadUserOrders();
+
+  if (!orders || orders.length === 0) {
+    body.innerHTML = `
+      <div class="empty-customer-state">
+        <span class="empty-state-icon">📦</span>
+        <h3>No orders placed yet</h3>
+        <p>You haven't placed any orders yet. Once you order, track your real-time delivery progress right here!</p>
+        <button type="button" class="btn-customer-primary" onclick="closeUserOrdersModal()">Start Shopping</button>
+      </div>
+    `;
+    return;
+  }
+
+  body.innerHTML = `
+    <div class="customer-orders-list">
+      ${orders.map(order => {
+        const orderIdDisplay = order._id ? order._id.slice(-6) : 'N/A';
+        const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'Recent';
+        const status = order.status || 'Pending';
+        const total = (Number(order.total) || 0).toFixed(2);
+        const items = order.items || [];
+
+        return `
+          <div class="customer-order-card">
+            <div class="customer-order-card-header">
+              <div>
+                <span class="customer-order-num">Order #${orderIdDisplay}</span>
+                <span class="customer-order-date">${dateStr}</span>
+              </div>
+              <span class="customer-status-badge status-${status.toLowerCase()}">${status}</span>
+            </div>
+            <div class="customer-order-items">
+              ${items.map(it => `
+                <div class="customer-order-item-row">
+                  <span>${it.name} &times; ${it.quantity}</span>
+                  <span class="tabular-nums">GH₵ ${((it.price || 0) * (it.quantity || 1)).toFixed(2)}</span>
+                </div>
+              `).join('')}
+            </div>
+            <div class="customer-order-card-footer">
+              <div class="customer-order-shipping">
+                <small>📍 Delivery to: ${order.address || 'Standard Delivery'}</small>
+              </div>
+              <div class="customer-order-total">
+                Total: <strong>GH₵ ${total}</strong>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function closeUserOrdersModal() {
+  const modal = document.getElementById('user-orders-modal');
+  const overlay = document.getElementById('orders-overlay');
+  if (modal) modal.classList.remove('show');
+  if (overlay) overlay.classList.remove('show');
 }
 
 
