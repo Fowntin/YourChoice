@@ -121,7 +121,7 @@
         if (response.ok) {
           const data = await response.json();
           handleLocalAuthSuccess(data.user, hadGuestItems ? 'Welcome back! Your saved items have been synced to your account.' : null);
-        } else if (response.status === 404) {
+        } else if (response.status === 404 || response.status === 405) {
           // GitHub Pages static host fallback
           let localUsers = [];
           try {
