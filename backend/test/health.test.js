@@ -132,5 +132,87 @@ test('Customer Order Placement & User Orders Retrieval', async () => {
   assert.ok(fetchCastRes.body.some(o => o.userId === timestampUserId || o.email === 'cast_test@example.com'));
 });
 
+test('Cart & Wishlist Persistence and Account Synchronization', async () => {
+  const testUsername = `sync_user_${Date.now()}`;
+  const testEmail = `${testUsername}@example.com`;
+  const guestCart = [
+    { id: 'item_1', name: 'Wireless Headphones', price: 90, quantity: 2, image: 'headphones.jpg' }
+  ];
+  const guestWishlist = [
+    { id: 'item_2', name: 'Smart Fitness Tracker', price: 65, image: 'tracker.jpg' }
+  ];
+
+  // 1. Register with guest items
+  const regRes = await request(app).post('/api/users/register').send({
+    username: testUsername,
+    email: testEmail,
+    password: 'password123',
+    name: 'Sync Test User',
+    guestCart,
+    guestWishlist
+  });
+
+  assert.equal(regRes.status, 201);
+  assert.ok(regRes.body.user);
+  assert.equal(regRes.body.user.cart.length, 1);
+  assert.equal(regRes.body.user.cart[0].name, 'Wireless Headphones');
+  assert.equal(regRes.body.user.cart[0].quantity, 2);
+  assert.equal(regRes.body.user.wishlist.length, 1);
+  assert.equal(regRes.body.user.wishlist[0].name, 'Smart Fitness Tracker');
+
+  // 2. Login with additional guest items and merge
+  const additionalGuestCart = [
+    { id: 'item_1', name: 'Wireless Headphones', price: 90, quantity: 1, image: 'headphones.jpg' },
+    { id: 'item_3', name: 'Laptop Backpack', price: 45, quantity: 1, image: 'backpack.jpg' }
+  ];
+  const additionalGuestWishlist = [
+    { id: 'item_2', name: 'Smart Fitness Tracker', price: 65, image: 'tracker.jpg' },
+    { id: 'item_4', name: 'Desk Lamp', price: 30, image: 'lamp.jpg' }
+  ];
+
+  const loginRes = await request(app).post('/api/users/login').send({
+    username: testUsername,
+    password: 'password123',
+    guestCart: additionalGuestCart,
+    guestWishlist: additionalGuestWishlist
+  });
+
+  assert.equal(loginRes.status, 200);
+  assert.ok(loginRes.body.user);
+  assert.equal(loginRes.body.user.cart.length, 2);
+  const headphones = loginRes.body.user.cart.find(i => i.id === 'item_1' || i.name === 'Wireless Headphones');
+  assert.ok(headphones);
+  assert.equal(headphones.quantity, 3);
+  assert.equal(loginRes.body.user.wishlist.length, 2);
+
+  // 3. GET /api/user/cart-wishlist
+  const fetchRes = await request(app).get(`/api/user/cart-wishlist?email=${testEmail}`);
+  assert.equal(fetchRes.status, 200);
+  assert.equal(fetchRes.body.cart.length, 2);
+  assert.equal(fetchRes.body.wishlist.length, 2);
+
+  // 4. POST /api/user/cart-wishlist (direct autosave update)
+  const updateRes = await request(app).post('/api/user/cart-wishlist').send({
+    email: testEmail,
+    cart: [{ id: 'item_5', name: 'Mechanical Keyboard', price: 110, quantity: 1 }],
+    wishlist: [{ id: 'item_6', name: 'Gaming Mouse', price: 50 }]
+  });
+  assert.equal(updateRes.status, 200);
+  assert.equal(updateRes.body.cart.length, 1);
+  assert.equal(updateRes.body.cart[0].name, 'Mechanical Keyboard');
+
+  // 5. POST /api/user/sync (explicit merge sync endpoint)
+  const syncRes = await request(app).post('/api/user/sync').send({
+    email: testEmail,
+    guestCart: [{ id: 'item_5', name: 'Mechanical Keyboard', price: 110, quantity: 2 }],
+    guestWishlist: [{ id: 'item_7', name: 'USB-C Dock', price: 80 }]
+  });
+  assert.equal(syncRes.status, 200);
+  assert.equal(syncRes.body.cart.length, 1);
+  assert.equal(syncRes.body.cart[0].quantity, 3);
+  assert.equal(syncRes.body.wishlist.length, 2);
+});
+
+
 
 

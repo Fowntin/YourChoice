@@ -299,7 +299,19 @@ app.post('/api/users/register', async (req, res) => {
         wishlist: initialWishlist
       });
       await user.save();
-      return res.status(201).json({ message: 'User registered successfully!' });
+      return res.status(201).json({
+        message: 'User registered successfully!',
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          name: user.name,
+          phone: user.phone,
+          address: user.address,
+          cart: user.cart || [],
+          wishlist: user.wishlist || []
+        }
+      });
     }
 
     // In-memory fallback
@@ -320,7 +332,19 @@ app.post('/api/users/register', async (req, res) => {
       createdAt: new Date()
     };
     inMemory.users.push(newUser);
-    return res.status(201).json({ message: 'User registered successfully!' });
+    return res.status(201).json({
+      message: 'User registered successfully!',
+      user: {
+        id: newUser.id,
+        username: newUser.username,
+        email: newUser.email,
+        name: newUser.name,
+        phone: newUser.phone,
+        address: newUser.address,
+        cart: newUser.cart,
+        wishlist: newUser.wishlist
+      }
+    });
   } catch (err) {
     console.error('User registration error:', err);
     res.status(500).json({ error: 'Failed to register user.' });

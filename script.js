@@ -465,6 +465,47 @@ function syncActiveUserCartAndWishlistDebounced() {
   }, 1200);
 }
 
+// Background sync to fetch remote account cart & wishlist for logged-in user
+async function syncActiveUserFromBackend() {
+  if (typeof window === 'undefined') return;
+  const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
+  if (!userLoggedIn) return;
+
+  let user = {};
+  try {
+    user = JSON.parse(localStorage.getItem('user') || '{}');
+  } catch (e) {
+    user = {};
+  }
+  if (!user.id && !user.email) return;
+
+  try {
+    const res = await fetch(`/api/user/cart-wishlist?userId=${encodeURIComponent(user.id || '')}&email=${encodeURIComponent(user.email || '')}`);
+    if (res.ok) {
+      const data = await res.json();
+      let cartUpdated = false;
+      if (Array.isArray(data.cart) && data.cart.length > 0 && cart.length === 0) {
+        cart = data.cart;
+        saveCartToStorage();
+        updateCartUI();
+        updateFloatingCartCount();
+        cartUpdated = true;
+      }
+      if (Array.isArray(data.wishlist) && data.wishlist.length > 0) {
+        const localWishlist = typeof getWishlist === 'function' ? getWishlist() : [];
+        if (localWishlist.length === 0) {
+          localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(data.wishlist));
+          if (typeof updateWishlistBadges === 'function') {
+            updateWishlistBadges();
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // Non-blocking background sync
+  }
+}
+
 // Safely extract cart envelope or migrate legacy plain array
 function getStoredCartEnvelope() {
   try {
@@ -1407,38 +1448,23 @@ window.addEventListener('DOMContentLoaded', () => {
   setupCartEventListeners();
   setupMobileMenu();
 
-  // Load cart from localStorage
-  try {
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      const parsedCart = JSON.parse(savedCart);
-      
-      if (Array.isArray(parsedCart)) {
-        const validCart = parsedCart.filter(item => 
-          item && 
-          item.name && 
-          typeof item.price === 'number' && 
-          item.price > 0 && 
-          typeof item.quantity === 'number' && 
-          item.quantity > 0
-        );
-        
-        cart = validCart;
-        updateCartUI();
-        updateFloatingCartCount(); // Initialize floating cart
-        
-        if (validCart.length !== parsedCart.length) {
-          showToast(`${parsedCart.length - validCart.length} invalid items were removed from your cart`, 'warning');
-        }
-      } else {
-        throw new Error('Cart is not an array');
+  // Load cart respecting 14-day rolling TTL envelope and initialize cart UI
+  loadCartFromStorage();
+  updateCartUI();
+  updateFloatingCartCount();
+
+  // Background sync for logged-in user
+  syncActiveUserFromBackend();
+
+  // Display any pending sync notifications from login/registration
+  const syncMsg = localStorage.getItem('syncMessage');
+  if (syncMsg) {
+    localStorage.removeItem('syncMessage');
+    setTimeout(() => {
+      if (typeof showToast === 'function') {
+        showToast(syncMsg, 'success');
       }
-    }
-  } catch (error) {
-    handleError(error, 'cart loading');
-    cart = [];
-    localStorage.removeItem('cart');
-    updateCartUI();
+    }, 600);
   }
   
   // Display products
