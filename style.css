@@ -97,56 +97,175 @@ nav a:hover {
   list-style: none;
   display: flex;
   align-items: center;
-  gap: 1.25rem;
+  gap: 0.45rem;
   margin: 0;
   padding: 0;
 }
 
+/* Base Desktop Nav Links */
 .site-nav .nav-link,
-.desktop-nav li a {
+.desktop-nav li a,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(1) > a:nth-of-type(1),
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(2) > a:nth-of-type(1),
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(3) > a#nav-cart-btn:nth-of-type(1),
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(4) > button#nav-wishlist-btn:nth-of-type(1),
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(6) > a:nth-of-type(1) {
   text-decoration: none;
-  color: #333;
-  font-weight: 500;
-  transition: color 0.2s ease;
-  padding: 0.5rem 0.25rem;
-  background: none;
-  border: none;
-  font-size: 0.95rem;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.92rem;
+  letter-spacing: -0.01em;
+  padding: 0.5rem 0.85rem;
+  border-radius: 10px;
+  background-color: transparent;
+  border: 1px solid transparent;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.45rem;
   font-family: inherit;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
 }
 
 .site-nav .nav-link:hover,
-.desktop-nav li a:hover {
-  color: #ff6f00;
+.desktop-nav li a:hover,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(1) > a:nth-of-type(1):hover,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(2) > a:nth-of-type(1):hover,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(3) > a#nav-cart-btn:nth-of-type(1):hover,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(4) > button#nav-wishlist-btn:nth-of-type(1):hover,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(6) > a:nth-of-type(1):hover {
+  background-color: #fff7ed;
+  border-color: #ffedd5;
+  color: #ea580c;
+  transform: translateY(-1px);
+}
+
+.site-nav .nav-link:active,
+.desktop-nav li a:active,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(1) > a:nth-of-type(1):active,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(2) > a:nth-of-type(1):active,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(3) > a#nav-cart-btn:nth-of-type(1):active,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(4) > button#nav-wishlist-btn:nth-of-type(1):active,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li:nth-of-type(6) > a:nth-of-type(1):active {
+  transform: scale(0.96);
+  background-color: #ffedd5;
+}
+
+.site-nav .nav-link:focus-visible,
+.desktop-nav li a:focus-visible,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li > a:focus-visible,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li > button:focus-visible {
+  outline: 2px solid #ff6f00;
+  outline-offset: 2px;
+}
+
+/* Nav Badges (Cart & Wishlist Count) */
+.nav-link .cart-count,
+.nav-link .nav-badge {
+  background: linear-gradient(135deg, #ff6f00, #ea580c);
+  color: #ffffff;
+  border-radius: 9999px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 5px rgba(234, 88, 12, 0.3);
+  font-variant-numeric: tabular-nums;
+  margin-left: 0.2rem;
 }
 
 .site-nav .drawer-icon {
   display: none;
 }
 
+/* Auth Buttons Group */
 .nav-auth-item {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
+  margin-left: 0.6rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid #e2e8f0;
 }
 
-.nav-auth-link {
+/* Login Button (Ghost Pill) */
+.nav-auth-link.nav-auth-login,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li#auth-links:nth-of-type(7) > a:nth-of-type(1) {
   text-decoration: none;
-  color: #333;
-  font-weight: 500;
-  transition: color 0.2s ease;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.88rem;
+  letter-spacing: -0.01em;
+  padding: 0.45rem 0.95rem;
+  border-radius: 10px;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
 }
 
-.nav-auth-link:hover {
-  color: #ff6f00;
+.nav-auth-link.nav-auth-login:hover,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li#auth-links:nth-of-type(7) > a:nth-of-type(1):hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06);
+}
+
+.nav-auth-link.nav-auth-login:active,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li#auth-links:nth-of-type(7) > a:nth-of-type(1):active {
+  transform: scale(0.96);
+  background-color: #f1f5f9;
+}
+
+/* Register Button (Primary Vibrant CTA Pill) */
+.nav-auth-link.nav-auth-register,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li#auth-links:nth-of-type(7) > a:nth-of-type(2) {
+  text-decoration: none;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.88rem;
+  letter-spacing: -0.01em;
+  padding: 0.45rem 1.05rem;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ff6f00, #ea580c);
+  border: 1px solid transparent;
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.nav-auth-link.nav-auth-register:hover,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li#auth-links:nth-of-type(7) > a:nth-of-type(2):hover {
+  background: linear-gradient(135deg, #ea580c, #c2410c);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.4);
+  color: #ffffff;
+}
+
+.nav-auth-link.nav-auth-register:active,
+header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li#auth-links:nth-of-type(7) > a:nth-of-type(2):active {
+  transform: scale(0.96);
 }
 
 .nav-auth-sep {
-  color: #94a3b8;
+  display: none;
 }
 
 .nav-orders-item {
