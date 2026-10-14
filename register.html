@@ -76,13 +76,40 @@
       e.preventDefault();
       
       const formData = new FormData(e.target);
+
+      // Collect existing guest cart items (handles envelope and array)
+      let guestCart = [];
+      try {
+        const rawCart = JSON.parse(localStorage.getItem('cart') || '[]');
+        if (Array.isArray(rawCart)) {
+          guestCart = rawCart;
+        } else if (rawCart && Array.isArray(rawCart.items)) {
+          guestCart = rawCart.items;
+        }
+      } catch (err) {
+        guestCart = [];
+      }
+
+      // Collect existing guest wishlist items
+      let guestWishlist = [];
+      try {
+        const rawWishlist = JSON.parse(localStorage.getItem('userWishlist') || '[]');
+        if (Array.isArray(rawWishlist)) {
+          guestWishlist = rawWishlist;
+        }
+      } catch (err) {
+        guestWishlist = [];
+      }
+
       const userData = {
         username: formData.get('username'),
         email: formData.get('email'),
         password: formData.get('password'),
         name: formData.get('name'),
         phone: formData.get('phone'),
-        address: formData.get('address')
+        address: formData.get('address'),
+        guestCart,
+        guestWishlist
       };
       
       const messageEl = document.getElementById('auth-message');

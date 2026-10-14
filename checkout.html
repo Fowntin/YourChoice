@@ -93,9 +93,21 @@
       }
     }
 
+    // Safely extract cart items from either the 14-day rolling envelope or legacy array
+    function getCartItems() {
+      try {
+        const raw = JSON.parse(localStorage.getItem('cart') || '[]');
+        if (Array.isArray(raw)) return raw;
+        if (raw && Array.isArray(raw.items)) return raw.items;
+        return [];
+      } catch (e) {
+        return [];
+      }
+    }
+
     // Load cart from localStorage and display order summary
     function loadOrderSummary() {
-      const cart = JSON.parse(localStorage.getItem('cart')) || [];
+      const cart = getCartItems();
       const list = document.getElementById('order-summary-list');
       const totalEl = document.getElementById('order-total');
       let total = 0;
@@ -123,7 +135,7 @@
     document.getElementById('checkout-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       
-      const cart = JSON.parse(localStorage.getItem('cart')) || [];
+      const cart = getCartItems();
       if (cart.length === 0) {
         showToast('Your cart is empty!', 'error');
         return;
@@ -169,6 +181,20 @@
 
           showToast('Order placed successfully! Redirecting...', 'success');
           localStorage.removeItem('cart');
+
+          // If logged in, clear account cart on server
+          if (user.id || user.email) {
+            try {
+              fetch('/api/user/cart-wishlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, email: user.email, cart: [] })
+              });
+            } catch (err) {
+              // Non-blocking background sync
+            }
+          }
+
           setTimeout(() => {
             window.location.href = 'index.html';
           }, 1500);

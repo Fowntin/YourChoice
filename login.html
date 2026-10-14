@@ -55,17 +55,43 @@
     document.getElementById('login-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       
-      const username = document.getElementById('username').value;
+      const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
       const messageEl = document.getElementById('auth-message');
       
+      // Collect existing guest cart items (handles envelope and array)
+      let guestCart = [];
+      try {
+        const rawCart = JSON.parse(localStorage.getItem('cart') || '[]');
+        if (Array.isArray(rawCart)) {
+          guestCart = rawCart;
+        } else if (rawCart && Array.isArray(rawCart.items)) {
+          guestCart = rawCart.items;
+        }
+      } catch (err) {
+        guestCart = [];
+      }
+
+      // Collect existing guest wishlist items
+      let guestWishlist = [];
+      try {
+        const rawWishlist = JSON.parse(localStorage.getItem('userWishlist') || '[]');
+        if (Array.isArray(rawWishlist)) {
+          guestWishlist = rawWishlist;
+        }
+      } catch (err) {
+        guestWishlist = [];
+      }
+
+      const hadGuestItems = guestCart.length > 0 || guestWishlist.length > 0;
+
       try {
         const response = await fetch('/api/users/login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ username, password })
+          body: JSON.stringify({ username, password, guestCart, guestWishlist })
         });
         
         const data = await response.json();
@@ -78,6 +104,21 @@
           localStorage.setItem('user', JSON.stringify(data.user));
           localStorage.setItem('userLoggedIn', 'true');
           
+          // Store merged cart with rolling TTL envelope
+          const mergedCart = (data.user && Array.isArray(data.user.cart)) ? data.user.cart : guestCart;
+          localStorage.setItem('cart', JSON.stringify({
+            items: mergedCart,
+            lastUpdated: Date.now()
+          }));
+
+          // Store merged wishlist indefinitely
+          const mergedWishlist = (data.user && Array.isArray(data.user.wishlist)) ? data.user.wishlist : guestWishlist;
+          localStorage.setItem('userWishlist', JSON.stringify(mergedWishlist));
+
+          if (hadGuestItems || (mergedCart.length > 0 || mergedWishlist.length > 0)) {
+            localStorage.setItem('syncMessage', 'Welcome back! Your saved items have been synced to your account.');
+          }
+
           setTimeout(() => {
             window.location.href = 'index.html';
           }, 1000);

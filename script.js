@@ -420,15 +420,138 @@ function handleError(error, context) {
 }
 
 // ========================================
-// SAVE CART TO LOCAL STORAGE FUNCTION
+// CART & WISHLIST STORAGE (14-DAY ROLLING TTL & LIFECYCLE)
 // ========================================
 
+const CART_STORAGE_KEY = 'cart';
+const CART_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days rolling expiration window
+const WISHLIST_STORAGE_KEY = 'userWishlist';
+
+// Debounced background sync for authenticated accounts
+let userSyncDebounceTimer = null;
+function syncActiveUserCartAndWishlistDebounced() {
+  if (typeof window === 'undefined') return;
+  const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
+  if (!userLoggedIn) return;
+
+  let user = {};
+  try {
+    user = JSON.parse(localStorage.getItem('user') || '{}');
+  } catch (e) {
+    user = {};
+  }
+  if (!user.id && !user.email) return;
+
+  if (userSyncDebounceTimer) {
+    clearTimeout(userSyncDebounceTimer);
+  }
+
+  userSyncDebounceTimer = setTimeout(async () => {
+    try {
+      const currentWishlist = typeof getWishlist === 'function' ? getWishlist() : [];
+      await fetch('/api/user/cart-wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          email: user.email,
+          cart: cart,
+          wishlist: currentWishlist
+        })
+      });
+    } catch (err) {
+      // Non-blocking background sync
+    }
+  }, 1200);
+}
+
+// Safely extract cart envelope or migrate legacy plain array
+function getStoredCartEnvelope() {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+
+    // Backward compatibility: auto-migrate legacy plain array into rolling TTL envelope
+    if (Array.isArray(parsed)) {
+      const envelope = {
+        items: parsed,
+        lastUpdated: Date.now()
+      };
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(envelope));
+      return envelope;
+    }
+
+    if (parsed && typeof parsed === 'object' && Array.isArray(parsed.items)) {
+      return parsed;
+    }
+    return null;
+  } catch (err) {
+    console.error('Error reading cart envelope:', err);
+    return null;
+  }
+}
+
+// Save cart wrapped in rolling TTL envelope
 function saveCartToStorage() {
   try {
-    localStorage.setItem('cart', JSON.stringify(cart));
+    const envelope = {
+      items: cart,
+      lastUpdated: Date.now()
+    };
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(envelope));
+    syncActiveUserCartAndWishlistDebounced();
   } catch (error) {
     handleError(error, 'cart saving');
-    // Optionally, you could implement a fallback storage method
+  }
+}
+
+// Load and validate cart respecting 14-day rolling expiration
+function loadCartFromStorage() {
+  try {
+    const envelope = getStoredCartEnvelope();
+    if (!envelope) {
+      cart = [];
+      return;
+    }
+
+    const now = Date.now();
+    const lastUpdated = typeof envelope.lastUpdated === 'number' ? envelope.lastUpdated : now;
+
+    // Check if 14-day rolling window has elapsed
+    if (now - lastUpdated > CART_TTL_MS) {
+      console.warn('Guest cart expired after 14 days of inactivity');
+      cart = [];
+      localStorage.removeItem(CART_STORAGE_KEY);
+      setTimeout(() => {
+        showToast('Your previous cart expired after 14 days of inactivity.', 'info');
+      }, 500);
+      return;
+    }
+
+    const validItems = (envelope.items || []).filter(item =>
+      item &&
+      item.name &&
+      typeof item.price === 'number' &&
+      item.price > 0 &&
+      typeof item.quantity === 'number' &&
+      item.quantity > 0
+    );
+
+    cart = validItems;
+
+    // Rolling TTL: refresh timestamp on active page load/session visit
+    saveCartToStorage();
+
+    if (envelope.items && validItems.length !== envelope.items.length) {
+      setTimeout(() => {
+        showToast(`${envelope.items.length - validItems.length} invalid items were removed from your cart`, 'warning');
+      }, 500);
+    }
+  } catch (error) {
+    handleError(error, 'cart loading');
+    cart = [];
+    localStorage.removeItem(CART_STORAGE_KEY);
   }
 }
 

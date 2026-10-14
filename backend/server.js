@@ -98,6 +98,8 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   phone: { type: String },
   address: { type: String },
+  cart: { type: Array, default: [] },
+  wishlist: { type: Array, default: [] },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -221,20 +223,81 @@ if (process.env.NODE_ENV !== 'test') {
   }
 }
 
-// User registration endpoint
+// Helper: merge guest cart items into existing cart (adding quantities for matching items)
+function mergeCarts(existingCart = [], incomingCart = []) {
+  const merged = Array.isArray(existingCart) ? existingCart.map(item => ({ ...item })) : [];
+  if (!Array.isArray(incomingCart)) return merged;
+
+  for (const item of incomingCart) {
+    if (!item || !item.name) continue;
+    const existingIndex = merged.findIndex(i => (item.id && i.id === item.id) || i.name === item.name);
+    if (existingIndex >= 0) {
+      const currentQty = Number(merged[existingIndex].quantity) || 1;
+      const incomingQty = Number(item.quantity) || 1;
+      merged[existingIndex].quantity = currentQty + incomingQty;
+    } else {
+      merged.push({
+        id: item.id || '',
+        name: item.name,
+        price: Number(item.price) || 0,
+        quantity: Math.max(1, Number(item.quantity) || 1),
+        image: item.image || (item.images && item.images[0]) || '',
+        currency: item.currency || 'GH₵'
+      });
+    }
+  }
+  return merged;
+}
+
+// Helper: merge guest wishlist into user wishlist (deduplicating by id or name)
+function mergeWishlists(existingWishlist = [], incomingWishlist = []) {
+  const merged = Array.isArray(existingWishlist) ? existingWishlist.map(item => ({ ...item })) : [];
+  if (!Array.isArray(incomingWishlist)) return merged;
+
+  for (const item of incomingWishlist) {
+    if (!item) continue;
+    const itemId = item.id || item._id;
+    const itemName = item.name;
+    const exists = merged.some(i => (itemId && i.id === itemId) || (itemName && i.name === itemName));
+    if (!exists) {
+      merged.push({
+        id: itemId || '',
+        name: itemName || 'Saved Item',
+        price: Number(item.price) || 0,
+        image: item.image || (item.images && item.images[0]) || '',
+        currency: item.currency || 'GH₵'
+      });
+    }
+  }
+  return merged;
+}
+
+// User registration endpoint (supports optional guest cart & wishlist seed)
 app.post('/api/users/register', async (req, res) => {
   try {
-    const { username, email, password, name, phone, address } = req.body;
+    const { username, email, password, name, phone, address, guestCart, guestWishlist } = req.body;
     if (!username || !email || !password || !name) {
       return res.status(400).json({ error: 'Please provide all required fields.' });
     }
+
+    const initialCart = mergeCarts([], guestCart);
+    const initialWishlist = mergeWishlists([], guestWishlist);
 
     if (isMongoConnected) {
       const existingUser = await User.findOne({ $or: [{ email }, { username }] });
       if (existingUser) {
         return res.status(400).json({ error: 'User with this email or username already exists.' });
       }
-      const user = new User({ username, email, password, name, phone, address });
+      const user = new User({
+        username,
+        email,
+        password,
+        name,
+        phone,
+        address,
+        cart: initialCart,
+        wishlist: initialWishlist
+      });
       await user.save();
       return res.status(201).json({ message: 'User registered successfully!' });
     }
@@ -252,6 +315,8 @@ app.post('/api/users/register', async (req, res) => {
       name,
       phone: phone || '',
       address: address || '',
+      cart: initialCart,
+      wishlist: initialWishlist,
       createdAt: new Date()
     };
     inMemory.users.push(newUser);
@@ -262,10 +327,10 @@ app.post('/api/users/register', async (req, res) => {
   }
 });
 
-// User login endpoint
+// User login endpoint (merges guest cart and wishlist if provided)
 app.post('/api/users/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, guestCart, guestWishlist } = req.body;
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required.' });
     }
@@ -277,6 +342,13 @@ app.post('/api/users/login', async (req, res) => {
       if (!user || user.password !== password) {
         return res.status(401).json({ error: 'Invalid credentials.' });
       }
+
+      if ((Array.isArray(guestCart) && guestCart.length > 0) || (Array.isArray(guestWishlist) && guestWishlist.length > 0)) {
+        user.cart = mergeCarts(user.cart || [], guestCart);
+        user.wishlist = mergeWishlists(user.wishlist || [], guestWishlist);
+        await user.save();
+      }
+
       return res.json({
         message: 'Login successful!',
         user: {
@@ -285,7 +357,9 @@ app.post('/api/users/login', async (req, res) => {
           email: user.email,
           name: user.name,
           phone: user.phone,
-          address: user.address
+          address: user.address,
+          cart: user.cart || [],
+          wishlist: user.wishlist || []
         }
       });
     }
@@ -295,6 +369,12 @@ app.post('/api/users/login', async (req, res) => {
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
+
+    if ((Array.isArray(guestCart) && guestCart.length > 0) || (Array.isArray(guestWishlist) && guestWishlist.length > 0)) {
+      user.cart = mergeCarts(user.cart || [], guestCart);
+      user.wishlist = mergeWishlists(user.wishlist || [], guestWishlist);
+    }
+
     return res.json({
       message: 'Login successful!',
       user: {
@@ -303,12 +383,165 @@ app.post('/api/users/login', async (req, res) => {
         email: user.email,
         name: user.name,
         phone: user.phone,
-        address: user.address
+        address: user.address,
+        cart: user.cart || [],
+        wishlist: user.wishlist || []
       }
     });
   } catch (err) {
     console.error('User login error:', err);
     res.status(500).json({ error: 'Login failed.' });
+  }
+});
+
+// Dedicated endpoint to synchronize guest cart & wishlist into an existing user account
+app.post('/api/user/sync', async (req, res) => {
+  try {
+    const { userId, email, guestCart, guestWishlist } = req.body;
+    if (!userId && !email) {
+      return res.status(400).json({ error: 'User identifier (userId or email) required for synchronization.' });
+    }
+
+    if (isMongoConnected) {
+      const orConditions = [];
+      if (userId) {
+        orConditions.push({ _id: userId });
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+          orConditions.push({ _id: new mongoose.Types.ObjectId(userId) });
+        }
+      }
+      if (email) {
+        orConditions.push({ email: { $regex: new RegExp(`^${email.trim()}$`, 'i') } });
+      }
+      const user = await User.findOne(orConditions.length > 1 ? { $or: orConditions } : orConditions[0]);
+      if (!user) {
+        return res.status(404).json({ error: 'User account not found.' });
+      }
+
+      user.cart = mergeCarts(user.cart || [], guestCart);
+      user.wishlist = mergeWishlists(user.wishlist || [], guestWishlist);
+      await user.save();
+
+      return res.json({
+        message: 'Cart and wishlist synchronized successfully',
+        cart: user.cart,
+        wishlist: user.wishlist
+      });
+    }
+
+    // In-memory fallback
+    const user = inMemory.users.find(u =>
+      (userId && (u.id === userId || u._id === userId)) ||
+      (email && u.email && u.email.toLowerCase() === email.trim().toLowerCase())
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'User account not found.' });
+    }
+
+    user.cart = mergeCarts(user.cart || [], guestCart);
+    user.wishlist = mergeWishlists(user.wishlist || [], guestWishlist);
+
+    return res.json({
+      message: 'Cart and wishlist synchronized successfully',
+      cart: user.cart,
+      wishlist: user.wishlist
+    });
+  } catch (err) {
+    console.error('Cart & Wishlist sync error:', err);
+    res.status(500).json({ error: 'Failed to synchronize items.' });
+  }
+});
+
+// Retrieve an authenticated user's current saved cart and wishlist
+app.get('/api/user/cart-wishlist', async (req, res) => {
+  try {
+    const userId = (req.query.userId || '').trim();
+    const email = (req.query.email || '').trim().toLowerCase();
+    if (!userId && !email) {
+      return res.status(400).json({ error: 'userId or email query parameter required.' });
+    }
+
+    if (isMongoConnected) {
+      const orConditions = [];
+      if (userId) {
+        orConditions.push({ _id: userId });
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+          orConditions.push({ _id: new mongoose.Types.ObjectId(userId) });
+        }
+      }
+      if (email) {
+        orConditions.push({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
+      }
+      const user = await User.findOne(orConditions.length > 1 ? { $or: orConditions } : orConditions[0]);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found.' });
+      }
+      return res.json({
+        cart: user.cart || [],
+        wishlist: user.wishlist || []
+      });
+    }
+
+    const user = inMemory.users.find(u =>
+      (userId && (u.id === userId || u._id === userId)) ||
+      (email && u.email && u.email.toLowerCase() === email)
+    );
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    return res.json({
+      cart: user.cart || [],
+      wishlist: user.wishlist || []
+    });
+  } catch (err) {
+    console.error('Get cart & wishlist error:', err);
+    res.status(500).json({ error: 'Failed to retrieve saved items.' });
+  }
+});
+
+// Update an authenticated user's cart and wishlist directly (e.g. real-time background autosave)
+app.post('/api/user/cart-wishlist', async (req, res) => {
+  try {
+    const { userId, email, cart, wishlist } = req.body;
+    if (!userId && !email) {
+      return res.status(400).json({ error: 'userId or email required.' });
+    }
+
+    if (isMongoConnected) {
+      const orConditions = [];
+      if (userId) {
+        orConditions.push({ _id: userId });
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+          orConditions.push({ _id: new mongoose.Types.ObjectId(userId) });
+        }
+      }
+      if (email) {
+        orConditions.push({ email: { $regex: new RegExp(`^${email.trim()}$`, 'i') } });
+      }
+      const user = await User.findOne(orConditions.length > 1 ? { $or: orConditions } : orConditions[0]);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found.' });
+      }
+      if (Array.isArray(cart)) user.cart = cart;
+      if (Array.isArray(wishlist)) user.wishlist = wishlist;
+      await user.save();
+      return res.json({ success: true, cart: user.cart, wishlist: user.wishlist });
+    }
+
+    const user = inMemory.users.find(u =>
+      (userId && (u.id === userId || u._id === userId)) ||
+      (email && u.email && u.email.toLowerCase() === email.trim().toLowerCase())
+    );
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    if (Array.isArray(cart)) user.cart = cart;
+    if (Array.isArray(wishlist)) user.wishlist = wishlist;
+    return res.json({ success: true, cart: user.cart, wishlist: user.wishlist });
+  } catch (err) {
+    console.error('Save cart & wishlist error:', err);
+    res.status(500).json({ error: 'Failed to update items.' });
   }
 });
 
