@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Checkout | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610141142" />
+  <link rel="stylesheet" href="style.css?v=v202610141332" />
 </head>
 <body>
   <header class="navbar">
@@ -59,7 +59,7 @@
     </div>
   </footer>
 
-  <script src="script.js?v=v202610141142"></script>
+  <script src="script.js?v=v202610141332"></script>
   <script>
     // Escape helper
     function escapeHtml(str) {
@@ -162,6 +162,16 @@
       submitBtn.disabled = true;
       submitBtn.textContent = 'Processing Order...';
 
+      // Check if running on a static host (e.g. GitHub Pages) where backend POST is unavailable
+      function isStaticHostEnvironment() {
+        if (typeof isStaticHost === 'function') {
+          try { return isStaticHost(); } catch (e) {}
+        }
+        if (typeof window === 'undefined') return false;
+        const host = window.location.hostname || '';
+        return host.endsWith('github.io') || window.location.protocol === 'file:';
+      }
+
       function saveOrderLocally(data) {
         const localId = 'GH-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
         const record = {
@@ -184,36 +194,43 @@
       let orderSuccessful = false;
       let placedOrderId = null;
 
-      try {
-        const response = await fetch('/api/orders', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(orderData)
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          orderSuccessful = true;
-          placedOrderId = data.orderId;
-        } else if (response.status === 404) {
-          // Static host without Node backend (e.g. GitHub Pages)
-          const localRecord = saveOrderLocally(orderData);
-          orderSuccessful = true;
-          placedOrderId = localRecord._id;
-        } else {
-          const data = await response.json().catch(() => ({}));
-          showToast(data.error || 'Failed to place order', 'error');
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Place Order';
-          return;
-        }
-      } catch (error) {
-        console.warn('Backend unavailable, completing order in local storage mode:', error);
+      // On static hosts (such as GitHub Pages), save locally upfront without firing POST to eliminate 405 Method Not Allowed errors
+      if (isStaticHostEnvironment()) {
         const localRecord = saveOrderLocally(orderData);
         orderSuccessful = true;
         placedOrderId = localRecord._id;
+      } else {
+        try {
+          const response = await fetch('/api/orders', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(orderData)
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            orderSuccessful = true;
+            placedOrderId = data.orderId;
+          } else if (response.status === 404 || response.status === 405) {
+            // Static host or unmapped backend route fallback
+            const localRecord = saveOrderLocally(orderData);
+            orderSuccessful = true;
+            placedOrderId = localRecord._id;
+          } else {
+            const data = await response.json().catch(() => ({}));
+            showToast(data.error || 'Failed to place order', 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Place Order';
+            return;
+          }
+        } catch (error) {
+          console.warn('Backend unavailable, completing order in local storage mode:', error);
+          const localRecord = saveOrderLocally(orderData);
+          orderSuccessful = true;
+          placedOrderId = localRecord._id;
+        }
       }
 
       if (orderSuccessful) {
@@ -226,7 +243,7 @@
         localStorage.removeItem('cart');
 
         // If logged in and running on live server, clear account cart on server
-        if ((user.id || user.email) && !window.location.hostname.endsWith('github.io')) {
+        if ((user.id || user.email) && !isStaticHostEnvironment()) {
           try {
             fetch('/api/user/cart-wishlist', {
               method: 'POST',
