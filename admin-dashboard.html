@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Dashboard | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610141524" />
+  <link rel="stylesheet" href="style.css?v=v202610141552" />
 </head>
 <body class="admin-page-body">
   <div class="admin-dashboard" id="admin-dashboard-container" style="display: none;">
@@ -56,6 +56,10 @@
             <h3>Pending Orders</h3>
             <p id="pending-orders">0</p>
           </div>
+          <div class="stat-card">
+            <h3>Customer Inquiries</h3>
+            <p id="total-messages">0</p>
+          </div>
         </div>
       </section>
 
@@ -84,6 +88,37 @@
             </thead>
             <tbody id="orders-tbody">
               <tr><td colspan="7" class="table-loading">Loading customer orders...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Customer Inquiries Section -->
+      <section class="messages-section" id="messages-section" style="margin-bottom: 2rem;">
+        <div class="section-header">
+          <div>
+            <h2>Customer Inquiries (<span id="dashboard-message-count">0</span>)</h2>
+            <p class="section-subtitle">Incoming customer support questions, inquiries, and feedback</p>
+          </div>
+          <div class="section-actions">
+            <button id="refresh-messages" class="refresh-btn" type="button">Refresh Messages</button>
+          </div>
+        </div>
+
+        <div class="orders-table-container">
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Customer</th>
+                <th>Topic / Subject</th>
+                <th>Message Content</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="messages-tbody">
+              <tr><td colspan="6" class="table-loading">Loading customer inquiries...</td></tr>
             </tbody>
           </table>
         </div>
@@ -227,6 +262,7 @@
 
       loadDashboardData();
       loadAdmins();
+      loadMessages();
       setInterval(loadDashboardData, 30000);
     }
 
@@ -390,6 +426,90 @@
         console.warn('Notice loading administrators directory:', err.message || err);
         if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="no-orders">Unable to load administrators list. <button type="button" onclick="loadAdmins()" class="table-retry-btn">Retry</button></td></tr>';
       }
+    }
+
+    // Load Customer Inquiries
+    async function loadMessages() {
+      const tbody = document.getElementById('messages-tbody');
+      const countEl = document.getElementById('dashboard-message-count');
+      const statTotalMessages = document.getElementById('total-messages');
+
+      try {
+        const response = await resilientFetch('/api/admin/messages', {
+          headers: getAuthHeaders()
+        });
+        if (handleAuthError(response)) return;
+
+        if (response.ok) {
+          const messages = await response.json();
+          if (Array.isArray(messages)) {
+            if (countEl) countEl.textContent = messages.length;
+            if (statTotalMessages) statTotalMessages.textContent = messages.length;
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (messages.length === 0) {
+              tbody.innerHTML = '<tr><td colspan="6" class="no-orders">No customer messages received yet.</td></tr>';
+              return;
+            }
+
+            messages.forEach(msg => {
+              const row = document.createElement('tr');
+              const dateStr = msg.createdAt ? new Date(msg.createdAt).toLocaleDateString() : 'Recent';
+              const timeStr = msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+              const status = msg.status || 'New';
+              const statusClass = status === 'New' ? 'status-pending' : (status === 'Replied' ? 'status-delivered' : 'status-processing');
+              const safeEmail = escapeHtml(msg.email || '');
+              const safeName = escapeHtml(msg.name || 'Anonymous');
+              const safeSubject = escapeHtml(msg.subject || 'Inquiry');
+              const safeMsg = escapeHtml(msg.message || '');
+              const mailtoSubject = encodeURIComponent(`Re: ${msg.subject || 'YourChoice Inquiry'}`);
+              const mailtoBody = encodeURIComponent(`Hi ${msg.name || ''},\n\nThank you for reaching out to YourChoice.\n\nRegarding your inquiry:\n"${msg.message || ''}"\n\n`);
+
+              row.innerHTML = `
+                <td data-label="Date" class="tabular-nums">
+                  <strong>${dateStr}</strong><br><small style="color:#64748b;">${timeStr}</small>
+                </td>
+                <td data-label="Customer">
+                  <strong>${safeName}</strong><br>
+                  <a href="mailto:${safeEmail}" style="color:#ff6f00; font-size:0.85rem; text-decoration:none;">${safeEmail}</a>
+                </td>
+                <td data-label="Subject">
+                  <span class="role-pill" style="background:#e0f2fe; color:#0369a1;">${safeSubject}</span>
+                </td>
+                <td data-label="Message" style="max-width: 280px; word-break: break-word;">
+                  <span style="font-size:0.9rem; color:#334155;">${safeMsg}</span>
+                </td>
+                <td data-label="Status">
+                  <span class="status-badge ${statusClass}">${status}</span>
+                </td>
+                <td data-label="Action">
+                  <div style="display:flex; gap:0.4rem; align-items:center;">
+                    <a href="mailto:${safeEmail}?subject=${mailtoSubject}&body=${mailtoBody}" target="_blank" class="action-btn view-btn" style="text-decoration:none; padding: 0.35rem 0.65rem; font-size:0.82rem;" onclick="markMessageReplied('${msg._id}')">
+                      Reply
+                    </a>
+                  </div>
+                </td>
+              `;
+              tbody.appendChild(row);
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Notice loading customer messages:', err.message || err);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="no-orders">Unable to load messages. <button type="button" onclick="loadMessages()" class="table-retry-btn">Retry</button></td></tr>';
+      }
+    }
+
+    async function markMessageReplied(id) {
+      try {
+        await fetch(`/api/admin/messages/${id}/status`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ status: 'Replied' })
+        });
+        setTimeout(loadMessages, 1000);
+      } catch (e) {}
     }
 
     // Quick Add Admin form handler
@@ -619,6 +739,8 @@
     // Refresh handlers
     document.getElementById('refresh-orders').addEventListener('click', () => loadDashboardData());
     document.getElementById('refresh-admins').addEventListener('click', () => loadAdmins());
+    const refreshMsgBtn = document.getElementById('refresh-messages');
+    if (refreshMsgBtn) refreshMsgBtn.addEventListener('click', () => loadMessages());
 
     // + Add Admin navigation button handler (smooth scroll & focus)
     const addAdminBtn = document.getElementById('nav-add-admin-btn');

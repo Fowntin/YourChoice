@@ -57,6 +57,17 @@ const inMemory = {
       status: 'Pending',
       createdAt: new Date(Date.now() - 1800000).toISOString()
     }
+  ],
+  contactMessages: [
+    {
+      _id: 'msg_sample_101',
+      name: 'Kwame Boateng',
+      email: 'kwame@example.com',
+      subject: 'Order Status & Tracking',
+      message: 'Hello YourChoice team, I would like to confirm the estimated arrival date for my delivery to East Legon. Thank you!',
+      status: 'New',
+      createdAt: new Date(Date.now() - 7200000).toISOString()
+    }
   ]
 };
 
@@ -104,6 +115,18 @@ const userSchema = new mongoose.Schema({
 });
 
 const User = mongoose.model('User', userSchema);
+
+// Contact Message Schema
+const contactMessageSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true },
+  subject: { type: String, default: 'General Inquiry' },
+  message: { type: String, required: true },
+  status: { type: String, default: 'New', enum: ['New', 'Read', 'Replied'] },
+  createdAt: { type: Date, default: Date.now },
+});
+
+const ContactMessage = mongoose.model('ContactMessage', contactMessageSchema);
 
 let isMongoConnected = false;
 
@@ -682,6 +705,69 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
+// Submit customer contact message
+app.post('/api/contact', async (req, res) => {
+  try {
+    const { name, email, subject, message } = req.body || {};
+    if (!name || !email || !message) {
+      return res.status(400).json({ success: false, error: 'Name, email, and message are required.' });
+    }
+
+    const cleanName = String(name).trim();
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanSubject = (subject && String(subject).trim()) || 'General Inquiry';
+    const cleanMessage = String(message).trim();
+
+    // Email validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return res.status(400).json({ success: false, error: 'Please provide a valid email address.' });
+    }
+
+    if (cleanMessage.length < 5) {
+      return res.status(400).json({ success: false, error: 'Message must be at least 5 characters long.' });
+    }
+
+    if (isMongoConnected) {
+      const contactRecord = new ContactMessage({
+        name: cleanName,
+        email: cleanEmail,
+        subject: cleanSubject,
+        message: cleanMessage,
+        status: 'New'
+      });
+      await contactRecord.save();
+      return res.status(201).json({
+        success: true,
+        message: 'Thank you for reaching out! Your message has been received.',
+        inquiryId: contactRecord._id,
+        createdAt: contactRecord.createdAt
+      });
+    }
+
+    // In-memory fallback
+    const newInquiry = {
+      _id: 'msg_' + Math.random().toString(36).substring(2, 9),
+      name: cleanName,
+      email: cleanEmail,
+      subject: cleanSubject,
+      message: cleanMessage,
+      status: 'New',
+      createdAt: new Date().toISOString()
+    };
+    inMemory.contactMessages.unshift(newInquiry);
+
+    res.status(201).json({
+      success: true,
+      message: 'Thank you for reaching out! Your message has been received.',
+      inquiryId: newInquiry._id,
+      createdAt: newInquiry.createdAt
+    });
+  } catch (err) {
+    console.error('Contact message submission error:', err);
+    res.status(500).json({ success: false, error: 'Failed to process inquiry. Please try again.' });
+  }
+});
+
 // Admin login endpoint
 app.post('/api/admin/login', async (req, res) => {
   try {
@@ -884,6 +970,58 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
     });
   } catch {
     res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// Get all customer contact messages (Protected: admin only)
+app.get('/api/admin/messages', authenticateAdmin, async (req, res) => {
+  try {
+    if (isMongoConnected) {
+      const messages = await ContactMessage.find().sort({ createdAt: -1 });
+      return res.json(messages);
+    }
+    res.json(inMemory.contactMessages || []);
+  } catch (err) {
+    console.error('Error fetching contact messages:', err);
+    res.status(500).json({ error: 'Failed to fetch customer messages.' });
+  }
+});
+
+// Update customer message status (Protected: admin only)
+app.patch('/api/admin/messages/:id/status', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body || {};
+    const validStatuses = ['New', 'Read', 'Replied'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Allowed values: New, Read, Replied' });
+    }
+
+    if (isMongoConnected) {
+      let msg = null;
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        msg = await ContactMessage.findByIdAndUpdate(id, { status }, { new: true });
+      }
+      if (!msg) {
+        const memMsg = (inMemory.contactMessages || []).find(m => m._id === id);
+        if (memMsg) {
+          memMsg.status = status;
+          return res.json(memMsg);
+        }
+        return res.status(404).json({ error: 'Message not found' });
+      }
+      return res.json(msg);
+    }
+
+    const msg = (inMemory.contactMessages || []).find(m => m._id === id);
+    if (!msg) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+    msg.status = status;
+    res.json(msg);
+  } catch (err) {
+    console.error('Error updating message status:', err);
+    res.status(500).json({ error: 'Failed to update message status.' });
   }
 });
 

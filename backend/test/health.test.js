@@ -213,6 +213,63 @@ test('Cart & Wishlist Persistence and Account Synchronization', async () => {
   assert.equal(syncRes.body.wishlist.length, 2);
 });
 
+test('Customer Contact Inquiry API lifecycle & validation', async () => {
+  // 1. Missing fields should be rejected
+  const badReq = await request(app).post('/api/contact').send({
+    name: 'Kofi',
+    email: 'kofi@example.com'
+  });
+  assert.equal(badReq.status, 400);
+  assert.equal(badReq.body.success, false);
+
+  // 2. Invalid email format should be rejected
+  const badEmailReq = await request(app).post('/api/contact').send({
+    name: 'Kofi',
+    email: 'not-an-email',
+    message: 'Hello team, inquiry test.'
+  });
+  assert.equal(badEmailReq.status, 400);
+  assert.equal(badEmailReq.body.success, false);
+
+  // 3. Valid contact submission succeeds
+  const validSubmission = {
+    name: 'Serwaa Akoto',
+    email: 'serwaa@example.com',
+    subject: 'Delivery Inquiry',
+    message: 'Hello, what are your delivery timeframes to Kumasi?'
+  };
+  const submitRes = await request(app).post('/api/contact').send(validSubmission);
+  assert.equal(submitRes.status, 201);
+  assert.equal(submitRes.body.success, true);
+  assert.ok(submitRes.body.inquiryId);
+
+  // 4. Authenticated admin can view inquiries
+  const initialUser = process.env.ADMIN_USERNAME || 'admin';
+  const initialPass = process.env.ADMIN_INITIAL_PASSWORD || 'admin123';
+  const loginRes = await request(app).post('/api/admin/login').send({
+    username: initialUser,
+    password: initialPass
+  });
+  const token = loginRes.body.token;
+
+  const messagesRes = await request(app)
+    .get('/api/admin/messages')
+    .set('Authorization', `Bearer ${token}`);
+  assert.equal(messagesRes.status, 200);
+  assert.ok(Array.isArray(messagesRes.body));
+  const found = messagesRes.body.find(m => m.email === 'serwaa@example.com');
+  assert.ok(found, 'Submitted contact message should be retrievable by admin');
+  assert.equal(found.subject, 'Delivery Inquiry');
+
+  // 5. Authenticated admin can update message status
+  const patchRes = await request(app)
+    .patch(`/api/admin/messages/${found._id}/status`)
+    .set('Authorization', `Bearer ${token}`)
+    .send({ status: 'Read' });
+  assert.equal(patchRes.status, 200);
+  assert.equal(patchRes.body.status, 'Read');
+});
+
 
 
 

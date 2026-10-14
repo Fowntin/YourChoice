@@ -1583,6 +1583,9 @@ window.addEventListener('DOMContentLoaded', () => {
       loadUserOrders();
     }, 400);
   }
+
+  // Initialize Customer Support & Contact Hub form
+  setupContactForm();
 });
 
 // Helper function to get cart elements
@@ -1903,5 +1906,172 @@ function closeUserOrdersModal() {
   if (modal) modal.classList.remove('show');
   if (overlay) overlay.classList.remove('show');
 }
+
+// ========================================
+// CUSTOMER SUPPORT & CONTACT FORM HANDLER
+// ========================================
+
+function setupContactForm() {
+  const form = document.getElementById('contact-form');
+  if (!form) return;
+
+  const nameInput = document.getElementById('contact-name');
+  const emailInput = document.getElementById('contact-email');
+  const subjectSelect = document.getElementById('contact-subject');
+  const messageInput = document.getElementById('contact-message');
+  const charCounter = document.getElementById('contact-char-count');
+  const submitBtn = document.getElementById('contact-submit-btn');
+  const alertBox = document.getElementById('contact-alert');
+  const directMailtoLink = document.getElementById('direct-mailto-link');
+
+  // Pre-fill user details if logged in
+  try {
+    const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
+    if (userLoggedIn) {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (user.name && nameInput && !nameInput.value) nameInput.value = user.name;
+      if (user.email && emailInput && !emailInput.value) emailInput.value = user.email;
+    }
+  } catch (e) {}
+
+  // Character counter and dynamic direct mailto link updater
+  function updateDirectMailto() {
+    if (!directMailtoLink) return;
+    const subj = subjectSelect ? subjectSelect.value : 'Customer Inquiry';
+    const body = messageInput ? messageInput.value : '';
+    const name = nameInput ? nameInput.value : '';
+    const fullBody = name ? `${body}\n\nFrom: ${name}` : body;
+    directMailtoLink.href = `mailto:support@yourchoice.com?subject=${encodeURIComponent('YourChoice: ' + subj)}&body=${encodeURIComponent(fullBody)}`;
+  }
+
+  if (messageInput && charCounter) {
+    messageInput.addEventListener('input', () => {
+      const len = messageInput.value.length;
+      charCounter.textContent = `${len} / 600`;
+      updateDirectMailto();
+    });
+  }
+
+  if (subjectSelect) subjectSelect.addEventListener('change', updateDirectMailto);
+  if (nameInput) nameInput.addEventListener('input', updateDirectMailto);
+
+  function showAlert(message, type = 'success') {
+    if (!alertBox) return;
+    alertBox.textContent = message;
+    alertBox.className = `contact-alert ${type}`;
+    alertBox.style.display = 'block';
+  }
+
+  function hideAlert() {
+    if (!alertBox) return;
+    alertBox.style.display = 'none';
+  }
+
+  function saveInquiryLocally(record) {
+    try {
+      const localInquiries = JSON.parse(localStorage.getItem('localContactInquiries') || '[]');
+      localInquiries.unshift(record);
+      localStorage.setItem('localContactInquiries', JSON.stringify(localInquiries));
+    } catch (e) {
+      console.warn('Could not save contact inquiry to localStorage', e);
+    }
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideAlert();
+
+    const name = nameInput ? nameInput.value.trim() : '';
+    const email = emailInput ? emailInput.value.trim() : '';
+    const subject = subjectSelect ? subjectSelect.value : 'General Inquiry';
+    const message = messageInput ? messageInput.value.trim() : '';
+
+    if (!name || !email || !message) {
+      showAlert('Please fill in all required fields.', 'error');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showAlert('Please enter a valid email address.', 'error');
+      return;
+    }
+
+    if (message.length < 5) {
+      showAlert('Please write a message with at least 5 characters.', 'error');
+      return;
+    }
+
+    // Prepare UI state
+    const originalBtnText = submitBtn ? submitBtn.innerHTML : 'Send Message';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `
+        <svg class="contact-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        Sending...
+      `;
+    }
+
+    const payload = {
+      name,
+      email,
+      subject,
+      message,
+      createdAt: new Date().toISOString()
+    };
+
+    let sentSuccessfully = false;
+
+    // Proactively check if on static host upfront (e.g. GitHub Pages)
+    if (isStaticHost()) {
+      const localId = 'LOCAL-' + Date.now().toString(36).toUpperCase();
+      saveInquiryLocally({ _id: localId, ...payload, status: 'New' });
+      sentSuccessfully = true;
+    } else {
+      try {
+        const response = await fetch('/api/contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          sentSuccessfully = true;
+        } else if (response.status === 404 || response.status === 405) {
+          // Static host without Node backend
+          const localId = 'LOCAL-' + Date.now().toString(36).toUpperCase();
+          saveInquiryLocally({ _id: localId, ...payload, status: 'New' });
+          sentSuccessfully = true;
+        } else {
+          const data = await response.json().catch(() => ({}));
+          showAlert(data.error || 'Failed to deliver message. Please try opening your email app directly.', 'error');
+        }
+      } catch (networkErr) {
+        // Network failure / offline: preserve customer inquiry locally
+        console.warn('Network issue delivering message, storing locally:', networkErr);
+        const localId = 'LOCAL-' + Date.now().toString(36).toUpperCase();
+        saveInquiryLocally({ _id: localId, ...payload, status: 'New' });
+        sentSuccessfully = true;
+      }
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnText;
+    }
+
+    if (sentSuccessfully) {
+      showAlert('Thank you! Your message has been received. Our team will contact you shortly.', 'success');
+      form.reset();
+      if (charCounter) charCounter.textContent = '0 / 600';
+      if (typeof showToast === 'function') {
+        showToast('Message sent successfully!', 'success');
+      }
+    }
+  });
+
+  // Call initial direct mailto link setup
+  updateDirectMailto();
+}
+
 
 
