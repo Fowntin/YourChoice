@@ -7,7 +7,7 @@
   <meta name="description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
   <meta property="og:title" content="YourChoice" />
   <meta property="og:description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
-  <link rel="stylesheet" href="style.css?v=v202610141612" />
+  <link rel="stylesheet" href="style.css?v=v202610141626" />
 </head>
 <body>
 
@@ -47,13 +47,15 @@
 
   <!-- Mobile Action Buttons (Visible on mobile viewports for quick reach) -->
   <div class="mobile-actions">
-    <button class="mobile-wishlist-btn" id="mobile-wishlist-trigger" aria-label="Open Saved Wishlist" title="Wishlist">
-      ❤️<span class="nav-badge mobile-wishlist-count" id="mobile-wishlist-count">0</span>
+    <button class="mobile-action-btn mobile-wishlist-btn" id="mobile-wishlist-trigger" aria-label="Open Saved Wishlist" title="Wishlist">
+      <svg class="mobile-btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+      <span class="nav-badge mobile-wishlist-count" id="mobile-wishlist-count">0</span>
     </button>
-    <button class="mobile-cart-btn" id="mobile-cart-trigger" aria-label="Open Shopping Cart" title="Cart">
-      🛒<span class="cart-count mobile-cart-count">0</span>
+    <button class="mobile-action-btn mobile-cart-btn" id="mobile-cart-trigger" aria-label="Open Shopping Cart" title="Cart">
+      <svg class="mobile-btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+      <span class="cart-count mobile-cart-count">0</span>
     </button>
-    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Open Navigation Menu" aria-expanded="false">
+    <button id="mobile-menu-btn" class="mobile-action-btn mobile-menu-btn" aria-label="Open Navigation Menu" aria-expanded="false">
       <span class="hamburger-bar"></span>
       <span class="hamburger-bar"></span>
       <span class="hamburger-bar"></span>
@@ -154,7 +156,14 @@
 
   <!-- Trending Products Carousel -->
   <section class="trending-products" aria-label="Trending Products">
-    <h2>🔥 Trending Products</h2>
+    <h2 class="trending-title">
+      <span class="trending-flame-badge" aria-hidden="true">
+        <svg class="trending-flame-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+        </svg>
+      </span>
+      <span class="trending-title-text">Trending Products</span>
+    </h2>
     <div class="carousel-container" role="region" aria-roledescription="carousel" aria-label="Trending Products Carousel">
       <button class="carousel-btn prev-btn" aria-label="Previous slide" onclick="slideCarousel('prev')">‹</button>
       <div class="carousel-track" id="trending-carousel" aria-live="polite">
@@ -429,8 +438,8 @@
   </div>
 </div>
 
-  <script src="src/products.js?v=v202610141612"></script>
-  <script src="script.js?v=v202610141612"></script>
+  <script src="src/products.js?v=v202610141626"></script>
+  <script src="script.js?v=v202610141626"></script>
   <script>
     // Check user authentication status (unified navigation)
     function checkAuthStatus() {
