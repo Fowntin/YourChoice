@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Register | YourChoice</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=v202610141142" />
 </head>
 <body>
   <header class="navbar">
@@ -114,6 +114,27 @@
       
       const messageEl = document.getElementById('auth-message');
       
+      function saveLocalAccount() {
+        const localUser = {
+          id: 'local_' + (userData.username || 'user').toLowerCase().replace(/[^a-z0-9]/g, '') + '_' + Date.now().toString(36),
+          ...userData,
+          cart: guestCart,
+          wishlist: guestWishlist
+        };
+        try {
+          const list = JSON.parse(localStorage.getItem('localUsers') || '[]');
+          list.push(localUser);
+          localStorage.setItem('localUsers', JSON.stringify(list));
+        } catch (e) {
+          localStorage.setItem('localUsers', JSON.stringify([localUser]));
+        }
+        messageEl.textContent = 'Account created successfully! Redirecting to login...';
+        messageEl.className = 'auth-message success';
+        setTimeout(() => {
+          window.location.href = 'login.html';
+        }, 1500);
+      }
+
       try {
         const response = await fetch('/api/users/register', {
           method: 'POST',
@@ -123,19 +144,25 @@
           body: JSON.stringify(userData)
         });
         
-        const data = await response.json();
-        
         if (response.ok) {
           messageEl.textContent = 'Account created successfully! Redirecting to login...';
           messageEl.className = 'auth-message success';
           setTimeout(() => {
             window.location.href = 'login.html';
           }, 2000);
+        } else if (response.status === 404) {
+          // Static host (e.g. GitHub Pages) fallback
+          saveLocalAccount();
         } else {
+          const data = await response.json().catch(() => ({}));
           messageEl.textContent = data.error || 'Registration failed';
           messageEl.className = 'auth-message error';
         }
       } catch (error) {
+        if (window.location.hostname.endsWith('github.io') || !navigator.onLine) {
+          saveLocalAccount();
+          return;
+        }
         messageEl.textContent = 'Network error. Please try again.';
         messageEl.className = 'auth-message error';
       }

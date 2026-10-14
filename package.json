@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "build": "node -e \"console.log('Build completed successfully')\"",
+    "build": "node scripts/cache-bust.js",
+    "cache-bust": "node scripts/cache-bust.js",
     "create-admin": "node scripts/create-admin.js",
     "test": "NODE_ENV=test node --test backend/test/health.test.js"
   },

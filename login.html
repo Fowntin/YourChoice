@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login | YourChoice</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=v202610141142" />
 </head>
 <body>
   <header class="navbar">
@@ -85,6 +85,30 @@
 
       const hadGuestItems = guestCart.length > 0 || guestWishlist.length > 0;
 
+      function handleLocalAuthSuccess(userData, syncNote) {
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('userLoggedIn', 'true');
+
+        const mergedCart = (userData && Array.isArray(userData.cart)) ? userData.cart : guestCart;
+        localStorage.setItem('cart', JSON.stringify({
+          items: mergedCart,
+          lastUpdated: Date.now()
+        }));
+
+        const mergedWishlist = (userData && Array.isArray(userData.wishlist)) ? userData.wishlist : guestWishlist;
+        localStorage.setItem('userWishlist', JSON.stringify(mergedWishlist));
+
+        if (syncNote || hadGuestItems) {
+          localStorage.setItem('syncMessage', syncNote || 'Welcome back! Your saved items have been preserved.');
+        }
+
+        messageEl.textContent = 'Login successful! Redirecting...';
+        messageEl.className = 'auth-message success';
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 1000);
+      }
+
       try {
         const response = await fetch('/api/users/login', {
           method: 'POST',
@@ -94,39 +118,58 @@
           body: JSON.stringify({ username, password, guestCart, guestWishlist })
         });
         
-        const data = await response.json();
-        
         if (response.ok) {
-          messageEl.textContent = 'Login successful! Redirecting...';
-          messageEl.className = 'auth-message success';
-          
-          // Store user info in localStorage
-          localStorage.setItem('user', JSON.stringify(data.user));
-          localStorage.setItem('userLoggedIn', 'true');
-          
-          // Store merged cart with rolling TTL envelope
-          const mergedCart = (data.user && Array.isArray(data.user.cart)) ? data.user.cart : guestCart;
-          localStorage.setItem('cart', JSON.stringify({
-            items: mergedCart,
-            lastUpdated: Date.now()
-          }));
-
-          // Store merged wishlist indefinitely
-          const mergedWishlist = (data.user && Array.isArray(data.user.wishlist)) ? data.user.wishlist : guestWishlist;
-          localStorage.setItem('userWishlist', JSON.stringify(mergedWishlist));
-
-          if (hadGuestItems || (mergedCart.length > 0 || mergedWishlist.length > 0)) {
-            localStorage.setItem('syncMessage', 'Welcome back! Your saved items have been synced to your account.');
+          const data = await response.json();
+          handleLocalAuthSuccess(data.user, hadGuestItems ? 'Welcome back! Your saved items have been synced to your account.' : null);
+        } else if (response.status === 404) {
+          // GitHub Pages static host fallback
+          let localUsers = [];
+          try {
+            localUsers = JSON.parse(localStorage.getItem('localUsers') || '[]');
+          } catch (e) {
+            localUsers = [];
           }
-
-          setTimeout(() => {
-            window.location.href = 'index.html';
-          }, 1000);
+          const matched = localUsers.find(u => (u.username === username || u.email === username) && u.password === password);
+          if (matched) {
+            handleLocalAuthSuccess(matched, 'Signed in (Static host mode). Orders and cart will be saved locally.');
+          } else {
+            const demoUser = {
+              id: 'local_' + username.toLowerCase().replace(/[^a-z0-9]/g, ''),
+              username: username,
+              email: username.includes('@') ? username : `${username}@example.com`,
+              name: username,
+              cart: guestCart,
+              wishlist: guestWishlist
+            };
+            handleLocalAuthSuccess(demoUser, 'Signed in (Static host mode). Orders and cart will be saved locally.');
+          }
         } else {
+          const data = await response.json().catch(() => ({}));
           messageEl.textContent = data.error || 'Login failed';
           messageEl.className = 'auth-message error';
         }
       } catch (error) {
+        // Network failure / offline fallback
+        let localUsers = [];
+        try {
+          localUsers = JSON.parse(localStorage.getItem('localUsers') || '[]');
+        } catch (e) {
+          localUsers = [];
+        }
+        const matched = localUsers.find(u => (u.username === username || u.email === username) && u.password === password);
+        if (matched || window.location.hostname.endsWith('github.io')) {
+          const activeUser = matched || {
+            id: 'local_' + username.toLowerCase().replace(/[^a-z0-9]/g, ''),
+            username: username,
+            email: username.includes('@') ? username : `${username}@example.com`,
+            name: username,
+            cart: guestCart,
+            wishlist: guestWishlist
+          };
+          handleLocalAuthSuccess(activeUser, 'Signed in (Offline mode). Your cart and orders are saved locally.');
+          return;
+        }
+
         messageEl.textContent = 'Network error. Please try again.';
         messageEl.className = 'auth-message error';
       }

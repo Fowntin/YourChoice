@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Checkout | YourChoice</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=v202610141142" />
 </head>
 <body>
   <header class="navbar">
@@ -59,7 +59,7 @@
     </div>
   </footer>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=v202610141142"></script>
   <script>
     // Escape helper
     function escapeHtml(str) {
@@ -162,6 +162,28 @@
       submitBtn.disabled = true;
       submitBtn.textContent = 'Processing Order...';
 
+      function saveOrderLocally(data) {
+        const localId = 'GH-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+        const record = {
+          _id: localId,
+          id: localId,
+          ...data,
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        };
+        try {
+          const list = JSON.parse(localStorage.getItem('localUserOrders') || '[]');
+          list.unshift(record);
+          localStorage.setItem('localUserOrders', JSON.stringify(list));
+        } catch (e) {
+          localStorage.setItem('localUserOrders', JSON.stringify([record]));
+        }
+        return record;
+      }
+
+      let orderSuccessful = false;
+      let placedOrderId = null;
+
       try {
         const response = await fetch('/api/orders', {
           method: 'POST',
@@ -171,43 +193,54 @@
           body: JSON.stringify(orderData)
         });
 
-        const data = await response.json();
-
         if (response.ok) {
-          // Persist customer contact details for future frictionless checkouts
-          if (orderData.phone) localStorage.setItem('savedCustomerPhone', orderData.phone);
-          if (orderData.address) localStorage.setItem('savedCustomerAddress', orderData.address);
-          if (data.orderId) sessionStorage.setItem('justPlacedOrderId', data.orderId);
-
-          showToast('Order placed successfully! Redirecting...', 'success');
-          localStorage.removeItem('cart');
-
-          // If logged in, clear account cart on server
-          if (user.id || user.email) {
-            try {
-              fetch('/api/user/cart-wishlist', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, email: user.email, cart: [] })
-              });
-            } catch (err) {
-              // Non-blocking background sync
-            }
-          }
-
-          setTimeout(() => {
-            window.location.href = 'index.html';
-          }, 1500);
+          const data = await response.json();
+          orderSuccessful = true;
+          placedOrderId = data.orderId;
+        } else if (response.status === 404) {
+          // Static host without Node backend (e.g. GitHub Pages)
+          const localRecord = saveOrderLocally(orderData);
+          orderSuccessful = true;
+          placedOrderId = localRecord._id;
         } else {
+          const data = await response.json().catch(() => ({}));
           showToast(data.error || 'Failed to place order', 'error');
           submitBtn.disabled = false;
           submitBtn.textContent = 'Place Order';
+          return;
         }
       } catch (error) {
-        console.error('Error placing order:', error);
-        showToast('Network error. Please try again.', 'error');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Place Order';
+        console.warn('Backend unavailable, completing order in local storage mode:', error);
+        const localRecord = saveOrderLocally(orderData);
+        orderSuccessful = true;
+        placedOrderId = localRecord._id;
+      }
+
+      if (orderSuccessful) {
+        // Persist customer contact details for future frictionless checkouts
+        if (orderData.phone) localStorage.setItem('savedCustomerPhone', orderData.phone);
+        if (orderData.address) localStorage.setItem('savedCustomerAddress', orderData.address);
+        if (placedOrderId) sessionStorage.setItem('justPlacedOrderId', placedOrderId);
+
+        showToast('Order placed successfully! Redirecting...', 'success');
+        localStorage.removeItem('cart');
+
+        // If logged in and running on live server, clear account cart on server
+        if ((user.id || user.email) && !window.location.hostname.endsWith('github.io')) {
+          try {
+            fetch('/api/user/cart-wishlist', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: user.id, email: user.email, cart: [] })
+            });
+          } catch (err) {
+            // Non-blocking background sync
+          }
+        }
+
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 1500);
       }
     });
 

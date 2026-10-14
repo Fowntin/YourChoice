@@ -427,10 +427,18 @@ const CART_STORAGE_KEY = 'cart';
 const CART_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days rolling expiration window
 const WISHLIST_STORAGE_KEY = 'userWishlist';
 
+// Helper to detect static hosting environments (e.g., GitHub Pages)
+function isStaticHost() {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname || '';
+  return host.endsWith('github.io') || window.location.protocol === 'file:';
+}
+
 // Debounced background sync for authenticated accounts
 let userSyncDebounceTimer = null;
 function syncActiveUserCartAndWishlistDebounced() {
   if (typeof window === 'undefined') return;
+  if (isStaticHost()) return; // Purely local in static environments
   const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
   if (!userLoggedIn) return;
 
@@ -468,6 +476,7 @@ function syncActiveUserCartAndWishlistDebounced() {
 // Background sync to fetch remote account cart & wishlist for logged-in user
 async function syncActiveUserFromBackend() {
   if (typeof window === 'undefined') return;
+  if (isStaticHost()) return; // GitHub Pages lacks Node backend; bypass network call
   const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
   if (!userLoggedIn) return;
 
@@ -506,12 +515,21 @@ async function syncActiveUserFromBackend() {
   }
 }
 
-// Safely extract cart envelope or migrate legacy plain array
+// Safely extract cart envelope with self-healing auto-repair for corrupt or legacy formats
 function getStoredCartEnvelope() {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (syntaxErr) {
+      console.warn('Corrupted JSON detected in cart storage. Auto-healing to clean envelope.');
+      const healedEnvelope = { items: [], lastUpdated: Date.now() };
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(healedEnvelope));
+      return healedEnvelope;
+    }
 
     // Backward compatibility: auto-migrate legacy plain array into rolling TTL envelope
     if (Array.isArray(parsed)) {
@@ -526,10 +544,15 @@ function getStoredCartEnvelope() {
     if (parsed && typeof parsed === 'object' && Array.isArray(parsed.items)) {
       return parsed;
     }
-    return null;
+
+    // Auto-heal unexpected non-envelope objects or primitive data types
+    console.warn('Invalid cart structure detected in localStorage. Auto-healing.');
+    const healedEnvelope = { items: [], lastUpdated: Date.now() };
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(healedEnvelope));
+    return healedEnvelope;
   } catch (err) {
     console.error('Error reading cart envelope:', err);
-    return null;
+    return { items: [], lastUpdated: Date.now() };
   }
 }
 
@@ -1744,22 +1767,54 @@ async function loadUserOrders() {
     return [];
   }
 
+  let localOrders = [];
   try {
-    const params = new URLSearchParams();
-    if (user.id) params.set('userId', user.id);
-    if (user.email) params.set('email', user.email);
-
-    const response = await fetch(`/api/user/orders?${params.toString()}`);
-    if (response.ok) {
-      const orders = await response.json();
-      const count = Array.isArray(orders) ? orders.length : 0;
-      badges.forEach(b => b.textContent = count);
-      return orders;
+    const raw = JSON.parse(localStorage.getItem('localUserOrders') || '[]');
+    if (Array.isArray(raw)) {
+      localOrders = raw.filter(o => !o.userId || o.userId === user.id || o.email === user.email);
     }
-  } catch (err) {
-    console.warn('Could not load user orders:', err);
+  } catch (e) {
+    localOrders = [];
   }
-  return [];
+
+  let remoteOrders = [];
+  if (!isStaticHost()) {
+    try {
+      const params = new URLSearchParams();
+      if (user.id) params.set('userId', user.id);
+      if (user.email) params.set('email', user.email);
+
+      const response = await fetch(`/api/user/orders?${params.toString()}`);
+      if (response.ok) {
+        const orders = await response.json();
+        if (Array.isArray(orders)) {
+          remoteOrders = orders;
+        }
+      }
+    } catch (err) {
+      console.warn('Could not load remote user orders:', err);
+    }
+  }
+
+  // Deduplicate and combine remote & local orders
+  const combinedMap = new Map();
+  remoteOrders.forEach(o => {
+    const key = o._id || o.id;
+    if (key) combinedMap.set(key, o);
+  });
+  localOrders.forEach(o => {
+    const key = o._id || o.id;
+    if (key && !combinedMap.has(key)) {
+      combinedMap.set(key, o);
+    }
+  });
+
+  const allOrders = Array.from(combinedMap.values());
+  allOrders.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+  const count = allOrders.length;
+  badges.forEach(b => b.textContent = count);
+  return allOrders;
 }
 
 async function openUserOrdersModal() {
