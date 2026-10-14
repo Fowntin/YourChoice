@@ -676,15 +676,27 @@ footer {
   margin-bottom: 1.2rem;
 }
 
-.contact-form label {
-  font-size: 0.86rem;
-  font-weight: 600;
-  color: #e2e8f0;
+/* High-Contrast Labels for Dark Support Hub Card */
+.contact-form label,
+.contact-form .form-group label,
+footer#contact #contact-form label,
+footer#contact:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > form#contact-form:nth-of-type(1) > div:nth-of-type(2) > label:nth-of-type(1),
+footer#contact:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > form#contact-form:nth-of-type(1) > div:nth-of-type(3) > label:nth-of-type(1),
+footer#contact:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > form#contact-form:nth-of-type(1) > div:nth-of-type(4) > label:nth-of-type(1),
+footer#contact:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > form#contact-form:nth-of-type(1) > div:nth-of-type(5) > div:nth-of-type(1) > label:nth-of-type(1) {
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  color: #f8fafc !important;
+  letter-spacing: -0.01em !important;
+  display: inline-block !important;
+  margin-bottom: 0.25rem !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .contact-form .required {
-  color: #ef4444;
-  margin-left: 2px;
+  color: #fb7185 !important;
+  font-weight: 700;
+  margin-left: 3px;
 }
 
 .contact-form .label-row {
@@ -694,8 +706,9 @@ footer {
 }
 
 .contact-form .char-count {
-  font-size: 0.76rem;
-  color: #64748b;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
