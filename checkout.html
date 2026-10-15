@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Checkout | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610151214" />
+  <link rel="stylesheet" href="style.css?v=v202610151232" />
 </head>
 <body>
   <header class="navbar">
@@ -45,21 +45,124 @@
     <div id="checkout-toast" class="toast"></div>
   </main>
 
-  <footer class="footer">
-    <div class="footer-content">
-      <h2>Contact Us</h2>
-      <p>Have questions or feedback? We'd love to hear from you.</p>
-      <form>
-        <input type="text" placeholder="Your Name" required />
-        <input type="email" placeholder="Your Email" required />
-        <textarea placeholder="Your Message" rows="4" required></textarea>
-        <button type="submit">Send Message</button>
-      </form>
-      <p class="copyright">© 2025 YourChoice. All rights reserved.</p>
+  <footer class="checkout-footer" role="contentinfo">
+    <div class="checkout-footer-container">
+      <!-- Trust Assurances Grid -->
+      <div class="checkout-trust-grid">
+        <div class="checkout-trust-card">
+          <div class="checkout-trust-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+          <div class="checkout-trust-info">
+            <h3 class="checkout-trust-title">Bank-Grade 256-Bit SSL</h3>
+            <p class="checkout-trust-desc">Encrypted end-to-end checkout. Your personal & payment details remain strictly confidential.</p>
+          </div>
+        </div>
+
+        <div class="checkout-trust-card">
+          <div class="checkout-trust-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              <polyline points="9 12 11 14 15 10"></polyline>
+            </svg>
+          </div>
+          <div class="checkout-trust-info">
+            <h3 class="checkout-trust-title">Buyer Protection Guarantee</h3>
+            <p class="checkout-trust-desc">7-day hassle-free returns & 100% authentic tech accessories backed by direct store warranty.</p>
+          </div>
+        </div>
+
+        <div class="checkout-trust-card">
+          <div class="checkout-trust-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+            </svg>
+          </div>
+          <div class="checkout-trust-info">
+            <h3 class="checkout-trust-title">Dedicated Checkout Support</h3>
+            <p class="checkout-trust-desc">Need assistance with your order? Our team is active to verify and support your delivery.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Support & Help Strip -->
+      <div class="checkout-support-strip">
+        <div class="checkout-support-contacts">
+          <span class="checkout-support-label">Direct Order Assistance:</span>
+          <a href="tel:+233240000000" class="checkout-support-link" title="Call or WhatsApp our support line">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+            </svg>
+            <span>+233 24 000 0000</span>
+          </a>
+          <span class="checkout-support-sep" aria-hidden="true">•</span>
+          <a href="mailto:support@yourchoice.com" class="checkout-support-link" title="Email our support desk">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+            <span>support@yourchoice.com</span>
+          </a>
+          <span class="checkout-support-hours">(Mon – Sat, 8am – 8pm GMT)</span>
+        </div>
+
+        <nav class="checkout-policy-links" aria-label="Checkout Policies">
+          <button type="button" class="checkout-policy-btn" data-policy="privacy">Privacy Policy</button>
+          <span class="checkout-policy-sep" aria-hidden="true">•</span>
+          <button type="button" class="checkout-policy-btn" data-policy="terms">Terms of Service</button>
+          <span class="checkout-policy-sep" aria-hidden="true">•</span>
+          <button type="button" class="checkout-policy-btn" data-policy="shipping">Shipping & Returns</button>
+          <span class="checkout-policy-sep" aria-hidden="true">•</span>
+          <button type="button" class="checkout-policy-btn" data-policy="security">Payment Security</button>
+        </nav>
+      </div>
+
+      <!-- Legal & Brand Bottom Row -->
+      <div class="checkout-footer-bottom">
+        <div class="checkout-footer-brand">
+          <span class="checkout-brand-name">YourChoice</span>
+          <span class="checkout-copyright">© <span id="checkout-year">2026</span> YourChoice. All rights reserved.</span>
+        </div>
+        <div class="checkout-security-badges">
+          <span class="checkout-badge-pill">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            256-Bit SSL Protected
+          </span>
+          <span class="checkout-badge-pill">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            Verified Checkout
+          </span>
+        </div>
+      </div>
     </div>
   </footer>
 
-  <script src="script.js?v=v202610151214"></script>
+  <!-- Non-Disruptive Policy Dialog Overlay -->
+  <div id="checkout-policy-modal" class="checkout-policy-modal" role="dialog" aria-modal="true" aria-labelledby="policy-modal-title" style="display: none;">
+    <div class="checkout-policy-backdrop" id="checkout-policy-backdrop"></div>
+    <div class="checkout-policy-dialog">
+      <div class="checkout-policy-header">
+        <h3 id="policy-modal-title" class="checkout-policy-heading">Store Policy</h3>
+        <button type="button" id="close-policy-btn" class="checkout-policy-close" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="checkout-policy-body" id="policy-modal-body">
+        <!-- Dynamically injected policy content -->
+      </div>
+      <div class="checkout-policy-footer">
+        <button type="button" id="confirm-policy-btn" class="checkout-policy-action-btn">Return to Checkout</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js?v=v202610151232"></script>
   <script>
     // Escape helper
     function escapeHtml(str) {
@@ -270,6 +373,110 @@
         toast.classList.remove('show');
       }, 3000);
     }
+
+    // Dynamic Checkout Year
+    const yearEl = document.getElementById('checkout-year');
+    if (yearEl) {
+      yearEl.textContent = new Date().getFullYear();
+    }
+
+    // Non-Disruptive Policy Dialog Handler
+    const policyModal = document.getElementById('checkout-policy-modal');
+    const policyBackdrop = document.getElementById('checkout-policy-backdrop');
+    const policyTitle = document.getElementById('policy-modal-title');
+    const policyBody = document.getElementById('policy-modal-body');
+    const closePolicyBtn = document.getElementById('close-policy-btn');
+    const confirmPolicyBtn = document.getElementById('confirm-policy-btn');
+    let lastActivePolicyBtn = null;
+
+    const checkoutPolicies = {
+      privacy: {
+        title: 'Privacy Policy',
+        content: `
+          <h4>1. Confidentiality & Order Fulfillment</h4>
+          <p>We take your privacy seriously. The customer name, email address, phone number, and physical delivery address you provide during checkout are used exclusively to process, verify, and deliver your order.</p>
+          <h4>2. Zero Third-Party Resale</h4>
+          <p>YourChoice will never sell, lease, or exchange your personal information with third-party advertisers or external marketing entities.</p>
+          <h4>3. Secure Storage & Communications</h4>
+          <p>Your checkout transmission is encrypted with 256-bit SSL protocols. Delivery updates and receipts are transmitted directly to your verified contact details.</p>
+        `
+      },
+      terms: {
+        title: 'Terms of Service',
+        content: `
+          <h4>1. Order Placement & Authorization</h4>
+          <p>Submitting an order via the "Place Order" button initiates fulfillment. An order confirmation is generated instantly with your order identifier.</p>
+          <h4>2. Delivery Verification in Ghana</h4>
+          <p>To prevent delivery errors and courier delays, our logistics team may place a brief phone call or send a WhatsApp confirmation to confirm your exact delivery landmarks before dispatch.</p>
+          <h4>3. Pricing & Currency</h4>
+          <p>All prices on YourChoice are quoted in Ghana Cedis (GH₵). Listed prices include all applicable goods and services value.</p>
+        `
+      },
+      shipping: {
+        title: 'Shipping & Returns Policy',
+        content: `
+          <h4>1. Delivery Timelines</h4>
+          <ul>
+            <li><strong>Greater Accra:</strong> Delivered within 24 to 48 hours. Same-day dispatch available for orders confirmed before 12:00 PM.</li>
+            <li><strong>Other Regions:</strong> Courier dispatch delivered within 2 to 4 business days.</li>
+          </ul>
+          <h4>2. Package Inspection</h4>
+          <p>You have the full right to visually inspect your packaged accessory upon delivery before courier sign-off.</p>
+          <h4>3. 7-Day Hassle-Free Returns</h4>
+          <p>If your product arrives damaged, defective, or does not match specifications, contact our support desk within 7 days of receipt for an immediate replacement or full refund.</p>
+        `
+      },
+      security: {
+        title: 'Payment & Transaction Security',
+        content: `
+          <h4>1. Bank-Grade 256-Bit SSL Protection</h4>
+          <p>Every transaction and data field submitted through our checkout system is shielded with industry-standard TLS/SSL encryption certificates.</p>
+          <h4>2. Supported Payment Methods</h4>
+          <p>We support trusted local and international payment methods including Cash on Delivery (Pay on Delivery), verified Mobile Money (MTN MoMo, Telecel Cash, AT Money), and credit/debit card processing.</p>
+          <h4>3. Zero Credential Retention</h4>
+          <p>YourChoice never stores, records, or asks for your Mobile Money PIN or banking CVV security codes.</p>
+        `
+      }
+    };
+
+    function openPolicyModal(policyKey) {
+      const data = checkoutPolicies[policyKey] || checkoutPolicies.privacy;
+      if (!policyModal || !policyTitle || !policyBody) return;
+      policyTitle.textContent = data.title;
+      policyBody.innerHTML = data.content;
+      policyModal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      if (closePolicyBtn) closePolicyBtn.focus();
+    }
+
+    function closePolicyModal() {
+      if (!policyModal) return;
+      policyModal.style.display = 'none';
+      document.body.style.overflow = '';
+      if (lastActivePolicyBtn) {
+        lastActivePolicyBtn.focus();
+        lastActivePolicyBtn = null;
+      }
+    }
+
+    document.querySelectorAll('.checkout-policy-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        lastActivePolicyBtn = this;
+        const policyKey = this.getAttribute('data-policy');
+        openPolicyModal(policyKey);
+      });
+    });
+
+    if (closePolicyBtn) closePolicyBtn.addEventListener('click', closePolicyModal);
+    if (confirmPolicyBtn) confirmPolicyBtn.addEventListener('click', closePolicyModal);
+    if (policyBackdrop) policyBackdrop.addEventListener('click', closePolicyModal);
+
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && policyModal && policyModal.style.display === 'flex') {
+        closePolicyModal();
+      }
+    });
   </script>
 </body>
 </html> 
