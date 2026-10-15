@@ -316,7 +316,22 @@ function updateCartUI() {
   let itemCount = 0;
   
   if (cart.length === 0) {
-    elements.items.innerHTML = '<li class="empty-cart">Your cart is empty.</li>';
+    elements.items.innerHTML = `
+      <li class="empty-cart empty-cart-state">
+        <div class="empty-cart-icon-wrap" aria-hidden="true">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8" cy="21" r="1"></circle>
+            <circle cx="19" cy="21" r="1"></circle>
+            <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path>
+          </svg>
+        </div>
+        <p class="empty-cart-title">Your cart is empty</p>
+        <p class="empty-cart-sub">You have no items in your shopping bag. Explore our collection for top-rated gadgets and accessories!</p>
+        <button type="button" class="empty-cart-cta" onclick="toggleCartView(); const p = document.getElementById('products'); if (p) p.scrollIntoView({behavior: 'smooth'});">
+          Start Shopping
+        </button>
+      </li>
+    `;
     elements.count.textContent = '0';
     elements.total.textContent = formatPrice(0);
     updateCartCountBadges(0);
@@ -344,14 +359,23 @@ function updateCartUI() {
     li.className = 'cart-item';
 
     li.innerHTML = `
-      <span class="item-name">${item.name}</span>
+      <div class="cart-item-details">
+        <span class="item-name">${item.name}</span>
+        <span class="item-unit-price">${formatPrice(item.price)} each</span>
+      </div>
       <div class="quantity-controls">
-        <button class="decrease-qty" data-index="${index}" aria-label="Decrease quantity of ${item.name}">➖</button>
-        <span>${item.quantity}</span>
-        <button class="increase-qty" data-index="${index}" aria-label="Increase quantity of ${item.name}">➕</button>
+        <button class="decrease-qty" data-index="${index}" aria-label="Decrease quantity of ${item.name}" title="Decrease quantity">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        </button>
+        <span class="qty-display">${item.quantity}</span>
+        <button class="increase-qty" data-index="${index}" aria-label="Increase quantity of ${item.name}" title="Increase quantity">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        </button>
       </div>
       <span class="item-price">${formatPrice(item.price * item.quantity)}</span>
-      <button class="remove-btn" data-index="${index}" aria-label="Remove ${item.name} from cart">🗑️</button>
+      <button class="remove-btn" data-index="${index}" aria-label="Remove ${item.name} from cart" title="Remove item">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+      </button>
     `;
     elements.items.appendChild(li);
   });
@@ -718,7 +742,7 @@ function setupCartEventListeners() {
   const cartItems = document.getElementById('cart-items');
   if (cartItems) {
     cartItems.addEventListener('click', function(event) {
-      const target = event.target;
+      const target = event.target.closest('button') || event.target;
       const index = target.getAttribute('data-index');
       if (index === null) return;
       if (target.classList.contains('decrease-qty')) {
@@ -732,7 +756,7 @@ function setupCartEventListeners() {
 
     // Add keyboard support for cart items
     cartItems.addEventListener('keydown', function(event) {
-      const target = event.target;
+      const target = event.target.closest('button') || event.target;
       const index = target.getAttribute('data-index');
       if (index === null) return;
       
