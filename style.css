@@ -3513,52 +3513,61 @@ body {
 /* ==========================================================================
    Minimal Trust & Support Checkout Footer (Enclosed Checkout Standard)
    ========================================================================== */
+/* ==========================================================================
+   Minimal Trust & Support Checkout Footer (Enclosed Checkout Standard)
+   ========================================================================== */
 .checkout-footer {
   background-color: #0b1120 !important;
   border-top: 1px solid #1e293b;
   color: #94a3b8;
-  margin-top: 3.5rem;
-  padding: 3rem 1.5rem 2.25rem;
+  margin-top: 2rem;
+  padding: 1.75rem 1.25rem 1.25rem;
   text-align: left !important;
   width: 100%;
   box-sizing: border-box;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 .checkout-footer-container {
   max-width: 1040px;
   margin: 0 auto;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 /* Trust Assurances Grid */
 .checkout-trust-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1.25rem;
-  padding-bottom: 2.25rem;
+  gap: 0.85rem;
+  padding-bottom: 1.25rem;
   border-bottom: 1px solid #1e293b;
 }
 
 .checkout-trust-card {
   display: flex;
-  align-items: flex-start;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.75rem;
   background-color: #0f172a;
   border: 1px solid #1e293b;
-  border-radius: 10px;
-  padding: 1.2rem 1.15rem;
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
   transition: border-color 0.2s ease, transform 0.2s ease;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .checkout-trust-card:hover {
   border-color: #334155;
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .checkout-trust-icon {
   flex-shrink: 0;
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
   background: rgba(255, 111, 0, 0.12);
   color: #ff6f00;
   display: flex;
@@ -3573,17 +3582,23 @@ body {
 
 .checkout-trust-title {
   color: #f8fafc;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 700;
-  margin: 0 0 0.35rem 0;
-  line-height: 1.3;
+  margin: 0 0 0.15rem 0;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .checkout-trust-desc {
   color: #94a3b8;
-  font-size: 0.82rem;
-  line-height: 1.48;
+  font-size: 0.76rem;
+  line-height: 1.35;
   margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Support & Policy Strip */
@@ -3592,17 +3607,17 @@ body {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 1.25rem;
-  padding: 1.75rem 0;
+  gap: 1rem;
+  padding: 1.1rem 0;
   border-bottom: 1px solid #1e293b;
-  font-size: 0.86rem;
+  font-size: 0.84rem;
 }
 
 .checkout-support-contacts {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: 0.5rem;
   color: #cbd5e1;
 }
 
@@ -3618,7 +3633,7 @@ body {
   color: #fb923c;
   text-decoration: none;
   font-weight: 600;
-  padding: 0.25rem 0.45rem;
+  padding: 0.2rem 0.45rem;
   border-radius: 5px;
   transition: color 0.15s ease, background-color 0.15s ease;
 }
@@ -3634,11 +3649,6 @@ body {
   color: #475569;
 }
 
-.checkout-support-hours {
-  color: #64748b;
-  font-size: 0.8rem;
-}
-
 .checkout-policy-links {
   display: flex;
   align-items: center;
@@ -3649,16 +3659,17 @@ body {
 .checkout-policy-btn {
   background: none;
   border: none;
-  padding: 0.35rem 0.55rem;
+  padding: 0.25rem 0.5rem;
   color: #94a3b8;
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
   border-radius: 5px;
   transition: color 0.15s ease, background-color 0.15s ease;
-  min-height: 36px;
+  min-height: 32px;
   display: inline-flex;
   align-items: center;
+  font-family: inherit;
 }
 
 .checkout-policy-btn:hover,
@@ -3678,8 +3689,8 @@ body {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 1rem;
-  padding-top: 1.5rem;
+  gap: 0.85rem;
+  padding-top: 1.15rem;
   font-size: 0.82rem;
   color: #64748b;
 }
@@ -3705,7 +3716,7 @@ body {
 .checkout-security-badges {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .checkout-badge-pill {
@@ -3717,7 +3728,7 @@ body {
   color: #94a3b8;
   background-color: #0f172a;
   border: 1px solid #1e293b;
-  padding: 0.35rem 0.65rem;
+  padding: 0.3rem 0.55rem;
   border-radius: 6px;
   letter-spacing: 0.01em;
 }
@@ -3870,14 +3881,14 @@ body {
 /* Tablet & Mobile Media Queries for Checkout Footer */
 @media (max-width: 900px) {
   .checkout-trust-grid {
-    grid-template-columns: 1fr;
-    gap: 0.85rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.65rem;
   }
 
   .checkout-support-strip {
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 0.75rem;
   }
 
   .checkout-policy-links {
@@ -3886,55 +3897,83 @@ body {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 680px) {
   .checkout-footer {
-    padding: 2.25rem 1rem 1.75rem !important;
-    margin-top: 2rem !important;
+    padding: 1.25rem 0.9rem 1rem !important;
+    margin-top: 1.5rem !important;
+  }
+
+  .checkout-trust-grid {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+    padding-bottom: 0.85rem;
   }
 
   .checkout-trust-card {
-    padding: 1rem;
+    padding: 0.55rem 0.75rem;
+    gap: 0.6rem;
+  }
+
+  .checkout-trust-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .checkout-trust-title {
+    font-size: 0.82rem;
+    margin: 0;
+  }
+
+  .checkout-trust-desc {
+    display: none;
+  }
+
+  .checkout-support-strip {
+    padding: 0.85rem 0;
+    gap: 0.65rem;
   }
 
   .checkout-support-contacts {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.45rem;
+    gap: 0.35rem;
+    font-size: 0.8rem;
   }
 
-  .checkout-support-sep {
-    display: none;
+  .checkout-policy-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    width: 100%;
   }
 
   .checkout-policy-sep {
     display: none;
   }
 
-  .checkout-policy-links {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.5rem;
-    width: 100%;
-  }
-
   .checkout-policy-btn {
-    padding: 0.5rem;
-    justify-content: center;
+    padding: 0.3rem 0.55rem;
+    font-size: 0.78rem;
+    min-height: 32px;
     background-color: #0f172a;
     border: 1px solid #1e293b;
-    width: 100%;
-    box-sizing: border-box;
+    border-radius: 6px;
   }
 
   .checkout-footer-bottom {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 0.85rem;
+    align-items: center;
+    text-align: center;
+    gap: 0.65rem;
+    padding-top: 0.85rem;
+  }
+
+  .checkout-footer-brand {
+    justify-content: center;
   }
 
   .checkout-security-badges {
+    justify-content: center;
     flex-wrap: wrap;
-    width: 100%;
+    gap: 0.45rem;
   }
 }
 
