@@ -1276,10 +1276,25 @@ function displayProducts(productsToShow = products) {
   gridContainer.innerHTML = '';
   
   if (productsToShow.length === 0) {
+    const activeBtn = document.querySelector('.filter-btn.active');
+    const categoryName = activeBtn ? activeBtn.textContent.trim() : 'this category';
     gridContainer.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: #666;">
-        <h3 style="font-size: 1.2rem; color: #333; margin-bottom: 0.5rem;">No products found</h3>
-        <p style="font-size: 0.95rem;">Try selecting a different category tab above.</p>
+      <div class="products-empty-state">
+        <div class="empty-icon-wrap" aria-hidden="true">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            <line x1="8" y1="11" x2="14" y2="11"></line>
+          </svg>
+        </div>
+        <h3>No products found in "${categoryName}"</h3>
+        <p>We are constantly stocking new genuine tech gear. Try selecting another category or view our complete catalog.</p>
+        <button type="button" class="empty-reset-btn" onclick="const b=document.querySelector('.filter-btn[data-category=\\'all\\']');if(b)b.click();">
+          <span>Browse All Products</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
       </div>
     `;
     return;
@@ -1423,21 +1438,6 @@ function setupCategoryFilter() {
         button.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       }
 
-      // Smooth scroll viewport to products top if already scrolled past or docked
-      const stickyHeader = document.querySelector('.products-header-sticky');
-      const navbar = document.querySelector('.navbar');
-      const navHeight = navbar ? navbar.offsetHeight : 64;
-      if (stickyHeader) {
-        const rect = stickyHeader.getBoundingClientRect();
-        if (rect.top <= navHeight + 8) {
-          const targetTop = window.scrollY + rect.top - navHeight;
-          window.scrollTo({
-            top: Math.max(0, targetTop),
-            behavior: 'smooth'
-          });
-        }
-      }
-
       if (category === 'all') {
         selectedCategories.clear();
         displayProducts(products);
@@ -1446,6 +1446,22 @@ function setupCategoryFilter() {
         selectedCategories.add(category);
         const filteredProducts = products.filter(product => product.category === category);
         displayProducts(filteredProducts);
+      }
+
+      // Smooth scroll viewport to products catalog top if already scrolled past or docked
+      const productsSection = document.getElementById('products');
+      const navbar = document.querySelector('.navbar');
+      const navHeight = navbar ? navbar.offsetHeight : 64;
+      if (productsSection) {
+        const sectionTop = productsSection.getBoundingClientRect().top + window.scrollY;
+        const targetTop = Math.max(0, sectionTop - navHeight);
+        // Only scroll if the user has scrolled down into the products catalog
+        if (window.scrollY > targetTop + 8) {
+          window.scrollTo({
+            top: targetTop,
+            behavior: 'smooth'
+          });
+        }
       }
     });
   });
@@ -2165,15 +2181,26 @@ function closeFaqModal() {
 }
 
 function selectCategoryFromFooter(category) {
-  const btn = document.querySelector(`.filter-btn[data-category="${category}"]`);
+  const categoryAliases = {
+    'smartphones': 'computers',
+    'laptops': 'computers',
+    'audio': 'accessories',
+    'pc-components': 'pc-components',
+    'cables-power': 'cables-power',
+    'bags-protection': 'bags-protection',
+    'networking': 'networking',
+    'all': 'all'
+  };
+  const targetCategory = categoryAliases[category] || category;
+  const btn = document.querySelector(`.filter-btn[data-category="${targetCategory}"]`) || document.querySelector(`.filter-btn[data-category="${category}"]`);
   if (btn) {
     btn.click();
   }
-  const productsSection = document.getElementById('products-section') || document.getElementById('products-grid');
+  const productsSection = document.getElementById('products') || document.getElementById('products-grid');
   if (productsSection) {
     const navbar = document.querySelector('.navbar');
-    const offset = navbar ? navbar.offsetHeight + 10 : 70;
-    const topPos = productsSection.getBoundingClientRect().top + window.pageYOffset - offset;
+    const offset = navbar ? navbar.offsetHeight : 64;
+    const topPos = productsSection.getBoundingClientRect().top + window.scrollY - offset;
     window.scrollTo({
       top: Math.max(0, topPos),
       behavior: 'smooth'

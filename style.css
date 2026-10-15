@@ -2749,6 +2749,9 @@ aside#mobile-nav-drawer .drawer-register-btn:focus-visible,
   padding: 0;
   max-width: 1300px;
   margin: 0 auto;
+  min-height: max(600px, 65vh);
+  display: flex;
+  flex-direction: column;
 }
 
 /* Hardware-Accelerated Sticky Navigation Sentinel */
@@ -2921,6 +2924,95 @@ section:nth-of-type(2) > h2:nth-of-type(1):hover .trending-flame-badge,
   gap: 2rem;
   max-width: 1200px;
   margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 2rem 1.5rem 3.5rem;
+  min-height: max(450px, 50vh);
+  flex: 1;
+  transition: opacity 0.2s ease;
+}
+
+/* Empty Products State */
+.products-empty-state {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3.5rem 1.5rem;
+  min-height: 380px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  margin: 1.5rem auto;
+  max-width: 680px;
+  width: 100%;
+  box-sizing: border-box;
+  animation: emptyFadeIn 0.3s ease-out;
+}
+
+@keyframes emptyFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.empty-icon-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff6f00;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.products-empty-state h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.5rem;
+}
+
+.products-empty-state p {
+  font-size: 0.92rem;
+  color: #64748b;
+  max-width: 440px;
+  line-height: 1.5;
+  margin: 0 0 1.5rem;
+}
+
+.empty-reset-btn {
+  background: #ff6f00;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.25);
+  touch-action: manipulation;
+}
+
+.empty-reset-btn:hover {
+  background: #e66300;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35);
 }
 
 
