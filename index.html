@@ -7,7 +7,7 @@
   <meta name="description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
   <meta property="og:title" content="YourChoice" />
   <meta property="og:description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
-  <link rel="stylesheet" href="style.css?v=v202610152230" />
+  <link rel="stylesheet" href="style.css?v=v202610152324" />
 </head>
 <body>
 
@@ -504,12 +504,12 @@
         <div class="form-row-2">
           <div class="form-group">
             <label for="contact-name">Full Name <span class="required">*</span></label>
-            <input type="text" id="contact-name" name="name" placeholder="e.g. Kofi Mensah" required autocomplete="name" />
+            <input type="text" id="contact-name" name="name" placeholder="e.g. Kofi Mensah" required minlength="2" maxlength="100" autocomplete="name" />
           </div>
 
           <div class="form-group">
             <label for="contact-email">Email Address <span class="required">*</span></label>
-            <input type="email" id="contact-email" name="email" placeholder="e.g. kofi@example.com" required autocomplete="email" />
+            <input type="email" id="contact-email" name="email" placeholder="e.g. kofi@example.com" required maxlength="254" autocomplete="email" />
           </div>
         </div>
 
@@ -529,7 +529,7 @@
             <label for="contact-message">Your Message <span class="required">*</span></label>
             <span class="char-count" id="contact-char-count">0 / 600</span>
           </div>
-          <textarea id="contact-message" name="message" rows="4" placeholder="How can our support team assist you today?" maxlength="600" required></textarea>
+          <textarea id="contact-message" name="message" rows="4" placeholder="How can our support team assist you today?" minlength="5" maxlength="600" required></textarea>
         </div>
 
         <button type="submit" id="contact-submit-btn" class="contact-submit-btn">
@@ -640,8 +640,8 @@
   </div>
 </div>
 
-  <script src="src/products.js?v=v202610152230"></script>
-  <script src="script.js?v=v202610152230"></script>
+  <script src="src/products.js?v=v202610152324"></script>
+  <script src="script.js?v=v202610152324"></script>
   <script>
     // Check user authentication status (unified navigation)
     function checkAuthStatus() {

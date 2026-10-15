@@ -270,6 +270,148 @@ test('Customer Contact Inquiry API lifecycle & validation', async () => {
   assert.equal(patchRes.body.status, 'Read');
 });
 
+test('Customer Account Security: Salted bcrypt hashing, authentication & legacy migration', async () => {
+  const secureUsername = `sec_user_${Date.now()}`;
+  const secureEmail = `${secureUsername}@example.com`;
+  const rawPassword = 'StrongPassword!2026';
 
+  // 1. Register customer account
+  const regRes = await request(app).post('/api/users/register').send({
+    username: secureUsername,
+    email: secureEmail,
+    password: rawPassword,
+    name: 'Secure Shopper',
+    phone: '+233 24 555 6677'
+  });
+  assert.equal(regRes.status, 201);
+  assert.ok(regRes.body.user);
+  assert.strictEqual(regRes.body.user.password, undefined, 'Password must never be returned in registration response');
 
+  // 2. Verify stored password is a salted bcrypt hash, never plaintext
+  if (app.inMemory && app.inMemory.users) {
+    const storedRecord = app.inMemory.users.find(u => u.username === secureUsername);
+    assert.ok(storedRecord, 'Customer record must be present in storage');
+    assert.notEqual(storedRecord.password, rawPassword, 'Password must not be stored in plaintext');
+    assert.match(storedRecord.password, /^\$2[ab]\$\d+\$/, 'Stored password must be a valid salted bcrypt hash');
+  }
 
+  // 3. Login with correct credentials succeeds
+  const loginSuccessRes = await request(app).post('/api/users/login').send({
+    username: secureUsername,
+    password: rawPassword
+  });
+  assert.equal(loginSuccessRes.status, 200);
+  assert.ok(loginSuccessRes.body.user);
+
+  // 4. Login with incorrect password is rejected (401)
+  const loginFailRes = await request(app).post('/api/users/login').send({
+    username: secureUsername,
+    password: 'WrongPassword123'
+  });
+  assert.equal(loginFailRes.status, 401);
+
+  // 5. Backward compatibility & auto-migration: legacy account with plaintext password
+  if (app.inMemory && app.inMemory.users) {
+    const legacyUsername = `legacy_user_${Date.now()}`;
+    const legacyPlainPassword = 'legacyPlaintextPass123';
+    app.inMemory.users.push({
+      id: 'usr_legacy_' + Date.now(),
+      username: legacyUsername,
+      email: `${legacyUsername}@example.com`,
+      password: legacyPlainPassword, // Unhashed legacy account
+      name: 'Legacy User',
+      cart: [],
+      wishlist: [],
+      createdAt: new Date().toISOString()
+    });
+
+    // Authenticate with legacy plaintext password
+    const legacyLoginRes = await request(app).post('/api/users/login').send({
+      username: legacyUsername,
+      password: legacyPlainPassword
+    });
+    assert.equal(legacyLoginRes.status, 200, 'Legacy account must be able to log in with original credentials');
+
+    // Verify the account has now been automatically upgraded to a salted bcrypt hash
+    const migratedUser = app.inMemory.users.find(u => u.username === legacyUsername);
+    assert.ok(migratedUser);
+    assert.notEqual(migratedUser.password, legacyPlainPassword, 'Legacy password must be migrated away from plaintext');
+    assert.match(migratedUser.password, /^\$2[ab]\$\d+\$/, 'Legacy password must be upgraded to salted bcrypt hash');
+  }
+});
+
+test('Input Boundary Validation & Rejection of Malformed Payloads', async () => {
+  // 1. Order placement with empty items array
+  const emptyItemsOrder = await request(app).post('/api/orders').send({
+    name: 'Kofi Mensah',
+    email: 'kofi@example.com',
+    phone: '+233 24 123 4567',
+    address: 'East Legon, Accra',
+    items: [],
+    total: 100
+  });
+  assert.equal(emptyItemsOrder.status, 400);
+
+  // 2. Order placement with non-string customer name (e.g., NoSQL injection payload)
+  const noSqlInjectionOrder = await request(app).post('/api/orders').send({
+    name: { $gt: '' },
+    email: 'kofi@example.com',
+    phone: '+233 24 123 4567',
+    address: 'East Legon, Accra',
+    items: [{ name: 'Mouse', price: 50, quantity: 1 }],
+    total: 50
+  });
+  assert.equal(noSqlInjectionOrder.status, 400);
+
+  // 3. Order placement with negative item quantity
+  const negativeQtyOrder = await request(app).post('/api/orders').send({
+    name: 'Kofi Mensah',
+    email: 'kofi@example.com',
+    phone: '+233 24 123 4567',
+    address: 'East Legon, Accra',
+    items: [{ name: 'Mouse', price: 50, quantity: -2 }],
+    total: -100
+  });
+  assert.equal(negativeQtyOrder.status, 400);
+
+  // 4. Order placement with invalid email format
+  const badEmailOrder = await request(app).post('/api/orders').send({
+    name: 'Kofi Mensah',
+    email: 'invalid-email-address',
+    phone: '+233 24 123 4567',
+    address: 'East Legon, Accra',
+    items: [{ name: 'Mouse', price: 50, quantity: 1 }],
+    total: 50
+  });
+  assert.equal(badEmailOrder.status, 400);
+
+  // 5. Admin updating order with non-whitelisted status
+  const initialUser = process.env.ADMIN_USERNAME || 'admin';
+  const initialPass = process.env.ADMIN_INITIAL_PASSWORD || 'admin123';
+  const loginRes = await request(app).post('/api/admin/login').send({
+    username: initialUser,
+    password: initialPass
+  });
+  const token = loginRes.body.token;
+
+  const badStatusRes = await request(app)
+    .put('/api/admin/orders/ord_sample_101')
+    .set('Authorization', `Bearer ${token}`)
+    .send({ status: 'InvalidExploitStatus' });
+  assert.equal(badStatusRes.status, 400);
+
+  // 6. Admin login with empty credentials
+  const emptyLoginRes = await request(app).post('/api/admin/login').send({
+    username: '',
+    password: ''
+  });
+  assert.equal(emptyLoginRes.status, 400);
+
+  // 7. Contact submission with message shorter than 5 chars
+  const shortMsgRes = await request(app).post('/api/contact').send({
+    name: 'Ama Osei',
+    email: 'ama@example.com',
+    message: 'Hi'
+  });
+  assert.equal(shortMsgRes.status, 400);
+});

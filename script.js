@@ -1,4 +1,18 @@
 // ========================================
+// SECURITY & ESCAPING HELPERS
+// ========================================
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ========================================
 // CART MANAGEMENT FUNCTIONS
 // ========================================
 
@@ -358,22 +372,23 @@ function updateCartUI() {
     const li = document.createElement('li');
     li.className = 'cart-item';
 
+    const safeItemName = escapeHtml(item.name || 'Item');
     li.innerHTML = `
       <div class="cart-item-details">
-        <span class="item-name">${item.name}</span>
+        <span class="item-name">${safeItemName}</span>
         <span class="item-unit-price">${formatPrice(item.price)} each</span>
       </div>
       <div class="quantity-controls">
-        <button class="decrease-qty" data-index="${index}" aria-label="Decrease quantity of ${item.name}" title="Decrease quantity">
+        <button class="decrease-qty" data-index="${index}" aria-label="Decrease quantity of ${safeItemName}" title="Decrease quantity">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         </button>
         <span class="qty-display">${item.quantity}</span>
-        <button class="increase-qty" data-index="${index}" aria-label="Increase quantity of ${item.name}" title="Increase quantity">
+        <button class="increase-qty" data-index="${index}" aria-label="Increase quantity of ${safeItemName}" title="Increase quantity">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         </button>
       </div>
       <span class="item-price">${formatPrice(item.price * item.quantity)}</span>
-      <button class="remove-btn" data-index="${index}" aria-label="Remove ${item.name} from cart" title="Remove item">
+      <button class="remove-btn" data-index="${index}" aria-label="Remove ${safeItemName} from cart" title="Remove item">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
       </button>
     `;
@@ -1759,15 +1774,15 @@ function renderWishlistModal() {
   body.innerHTML = `
     <div class="wishlist-items-grid">
       ${list.map(item => `
-        <div class="wishlist-item-card" data-id="${item.id}">
-          <img src="${item.image || 'https://via.placeholder.com/150'}" alt="${item.name}" class="wishlist-thumb" />
+        <div class="wishlist-item-card" data-id="${escapeHtml(item.id || '')}">
+          <img src="${escapeHtml(item.image || 'https://via.placeholder.com/150')}" alt="${escapeHtml(item.name || 'Saved Item')}" class="wishlist-thumb" />
           <div class="wishlist-info">
-            <h4 class="wishlist-name">${item.name}</h4>
-            <div class="wishlist-price">${item.currency || 'GH₵'} ${(Number(item.price) || 0).toFixed(2)}</div>
+            <h4 class="wishlist-name">${escapeHtml(item.name || 'Saved Item')}</h4>
+            <div class="wishlist-price">${escapeHtml(item.currency || 'GH₵')} ${(Number(item.price) || 0).toFixed(2)}</div>
           </div>
           <div class="wishlist-item-actions">
-            <button type="button" class="btn-wishlist-add-cart" data-id="${item.id}">Add to Cart</button>
-            <button type="button" class="btn-wishlist-remove" data-id="${item.id}" aria-label="Remove item">🗑️</button>
+            <button type="button" class="btn-wishlist-add-cart" data-id="${escapeHtml(item.id || '')}">Add to Cart</button>
+            <button type="button" class="btn-wishlist-remove" data-id="${escapeHtml(item.id || '')}" aria-label="Remove item">🗑️</button>
           </div>
         </div>
       `).join('')}
@@ -1902,11 +1917,12 @@ async function openUserOrdersModal() {
   body.innerHTML = `
     <div class="customer-orders-list">
       ${orders.map(order => {
-        const orderIdDisplay = order._id ? order._id.slice(-6) : 'N/A';
-        const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'Recent';
-        const status = order.status || 'Pending';
+        const orderIdDisplay = escapeHtml(order._id ? String(order._id).slice(-6) : 'N/A');
+        const dateStr = escapeHtml(order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'Recent');
+        const status = escapeHtml(order.status || 'Pending');
         const total = (Number(order.total) || 0).toFixed(2);
-        const items = order.items || [];
+        const items = Array.isArray(order.items) ? order.items : [];
+        const safeAddress = escapeHtml(order.address || 'Standard Delivery');
 
         return `
           <div class="customer-order-card">
@@ -1920,14 +1936,14 @@ async function openUserOrdersModal() {
             <div class="customer-order-items">
               ${items.map(it => `
                 <div class="customer-order-item-row">
-                  <span>${it.name} &times; ${it.quantity}</span>
-                  <span class="tabular-nums">GH₵ ${((it.price || 0) * (it.quantity || 1)).toFixed(2)}</span>
+                  <span>${escapeHtml(it.name || 'Item')} &times; ${Number(it.quantity) || 1}</span>
+                  <span class="tabular-nums">GH₵ ${((Number(it.price) || 0) * (Number(it.quantity) || 1)).toFixed(2)}</span>
                 </div>
               `).join('')}
             </div>
             <div class="customer-order-card-footer">
               <div class="customer-order-shipping">
-                <small>📍 Delivery to: ${order.address || 'Standard Delivery'}</small>
+                <small>📍 Delivery to: ${safeAddress}</small>
               </div>
               <div class="customer-order-total">
                 Total: <strong>GH₵ ${total}</strong>

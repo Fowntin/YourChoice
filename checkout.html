@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Checkout | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610152230" />
+  <link rel="stylesheet" href="style.css?v=v202610152324" />
 </head>
 <body>
   <header class="navbar">
@@ -28,10 +28,10 @@
       <div id="checkout-member-badge" class="checkout-member-badge" style="display: none;"></div>
       <form id="checkout-form">
         <h2>Customer Information</h2>
-        <input type="text" id="customer-name" name="name" placeholder="Full Name" required />
-        <input type="email" id="customer-email" name="email" placeholder="Email Address" required />
-        <input type="tel" id="customer-phone" name="phone" placeholder="Phone Number" required />
-        <input type="text" id="customer-address" name="address" placeholder="Delivery Address" required />
+        <input type="text" id="customer-name" name="name" placeholder="Full Name" required minlength="2" maxlength="80" autocomplete="name" />
+        <input type="email" id="customer-email" name="email" placeholder="Email Address" required maxlength="254" autocomplete="email" />
+        <input type="tel" id="customer-phone" name="phone" placeholder="Phone Number (e.g. +233 24 123 4567)" required minlength="7" maxlength="25" autocomplete="tel" />
+        <input type="text" id="customer-address" name="address" placeholder="Delivery Address" required minlength="5" maxlength="250" autocomplete="street-address" />
       </form>
     </section>
     <section class="order-summary-section">
@@ -161,7 +161,7 @@
     </div>
   </div>
 
-  <script src="script.js?v=v202610152230"></script>
+  <script src="script.js?v=v202610152324"></script>
   <script>
     // Escape helper
     function escapeHtml(str) {

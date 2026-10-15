@@ -71,6 +71,8 @@ const inMemory = {
   ]
 };
 
+app.inMemory = inMemory;
+
 // Order Schema
 const orderSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -246,6 +248,80 @@ if (process.env.NODE_ENV !== 'test') {
   }
 }
 
+// ========================================================
+// DEFENSIVE INPUT VALIDATION & CONTEXTUAL SANITIZATION HELPERS
+// ========================================================
+
+// Type-safe string check enforcing length boundaries
+function isValidString(val, minLen = 1, maxLen = 255) {
+  if (typeof val !== 'string') return false;
+  const trimmed = val.trim();
+  return trimmed.length >= minLen && trimmed.length <= maxLen;
+}
+
+// RFC 5322-compliant email validator
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+function isValidEmail(email) {
+  if (typeof email !== 'string') return false;
+  const trimmed = email.trim().toLowerCase();
+  return trimmed.length <= 254 && EMAIL_REGEX.test(trimmed);
+}
+
+// Safe phone number validator (allows Ghana and international formats)
+function isValidPhone(phone) {
+  if (typeof phone !== 'string') return false;
+  const trimmed = phone.trim();
+  return trimmed.length >= 7 && trimmed.length <= 25 && /^[+]?[\d\s\-()]{7,25}$/.test(trimmed);
+}
+
+// Escapes special regex characters before passing into MongoDB $regex queries to prevent ReDoS / injection
+function escapeRegex(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Validates order items array ensuring valid types and positive prices/quantities
+function validateOrderItems(items) {
+  if (!Array.isArray(items) || items.length === 0 || items.length > 100) {
+    return { valid: false, error: 'Order must contain between 1 and 100 items.' };
+  }
+
+  const sanitizedItems = [];
+  let calculatedTotal = 0;
+
+  for (let idx = 0; idx < items.length; idx++) {
+    const it = items[idx];
+    if (!it || typeof it !== 'object') {
+      return { valid: false, error: `Invalid item structure at index ${idx}.` };
+    }
+    if (!isValidString(it.name, 1, 150)) {
+      return { valid: false, error: `Invalid item name at index ${idx}.` };
+    }
+    const qty = Number(it.quantity);
+    if (!Number.isInteger(qty) || qty < 1 || qty > 100) {
+      return { valid: false, error: `Item "${it.name}" quantity must be an integer between 1 and 100.` };
+    }
+    const price = Number(it.price);
+    if (isNaN(price) || price < 0 || price > 1000000) {
+      return { valid: false, error: `Item "${it.name}" has an invalid price.` };
+    }
+
+    sanitizedItems.push({
+      id: it.id ? String(it.id).substring(0, 50) : '',
+      name: it.name.trim(),
+      quantity: qty,
+      price: Math.round(price * 100) / 100
+    });
+    calculatedTotal += price * qty;
+  }
+
+  return {
+    valid: true,
+    items: sanitizedItems,
+    calculatedTotal: Math.round(calculatedTotal * 100) / 100
+  };
+}
+
 // Helper: merge guest cart items into existing cart (adding quantities for matching items)
 function mergeCarts(existingCart = [], incomingCart = []) {
   const merged = Array.isArray(existingCart) ? existingCart.map(item => ({ ...item })) : [];
@@ -298,26 +374,57 @@ function mergeWishlists(existingWishlist = [], incomingWishlist = []) {
 // User registration endpoint (supports optional guest cart & wishlist seed)
 app.post('/api/users/register', async (req, res) => {
   try {
-    const { username, email, password, name, phone, address, guestCart, guestWishlist } = req.body;
-    if (!username || !email || !password || !name) {
-      return res.status(400).json({ error: 'Please provide all required fields.' });
+    const { username, email, password, name, phone, address, guestCart, guestWishlist } = req.body || {};
+
+    // Boundary Validation
+    if (!isValidString(username, 3, 40)) {
+      return res.status(400).json({ error: 'Username must be between 3 and 40 characters.' });
     }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Please provide a valid email address.' });
+    }
+    if (!isValidString(password, 6, 128)) {
+      return res.status(400).json({ error: 'Password must be between 6 and 128 characters.' });
+    }
+    if (!isValidString(name, 2, 80)) {
+      return res.status(400).json({ error: 'Full name must be between 2 and 80 characters.' });
+    }
+    if (phone && !isValidPhone(phone)) {
+      return res.status(400).json({ error: 'Please provide a valid phone number.' });
+    }
+    if (address && !isValidString(address, 3, 200)) {
+      return res.status(400).json({ error: 'Delivery address must be under 200 characters.' });
+    }
+
+    const cleanUsername = username.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name.trim();
+    const cleanPhone = phone ? phone.trim() : '';
+    const cleanAddress = address ? address.trim() : '';
+
+    // Salted bcrypt password hash before storage (OWASP best practice)
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const initialCart = mergeCarts([], guestCart);
     const initialWishlist = mergeWishlists([], guestWishlist);
 
     if (isMongoConnected) {
-      const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+      const existingUser = await User.findOne({
+        $or: [
+          { email: cleanEmail },
+          { username: cleanUsername }
+        ]
+      });
       if (existingUser) {
         return res.status(400).json({ error: 'User with this email or username already exists.' });
       }
       const user = new User({
-        username,
-        email,
-        password,
-        name,
-        phone,
-        address,
+        username: cleanUsername,
+        email: cleanEmail,
+        password: hashedPassword,
+        name: cleanName,
+        phone: cleanPhone,
+        address: cleanAddress,
         cart: initialCart,
         wishlist: initialWishlist
       });
@@ -338,21 +445,24 @@ app.post('/api/users/register', async (req, res) => {
     }
 
     // In-memory fallback
-    const exists = inMemory.users.find(u => u.username === username || u.email === email);
+    const exists = inMemory.users.find(u =>
+      (u.username && u.username.toLowerCase() === cleanUsername.toLowerCase()) ||
+      (u.email && u.email.toLowerCase() === cleanEmail)
+    );
     if (exists) {
       return res.status(400).json({ error: 'User with this email or username already exists.' });
     }
     const newUser = {
       id: 'usr_' + Date.now(),
-      username,
-      email,
-      password,
-      name,
-      phone: phone || '',
-      address: address || '',
+      username: cleanUsername,
+      email: cleanEmail,
+      password: hashedPassword,
+      name: cleanName,
+      phone: cleanPhone,
+      address: cleanAddress,
       cart: initialCart,
       wishlist: initialWishlist,
-      createdAt: new Date()
+      createdAt: new Date().toISOString()
     };
     inMemory.users.push(newUser);
     return res.status(201).json({
@@ -377,16 +487,37 @@ app.post('/api/users/register', async (req, res) => {
 // User login endpoint (merges guest cart and wishlist if provided)
 app.post('/api/users/login', async (req, res) => {
   try {
-    const { username, password, guestCart, guestWishlist } = req.body;
-    if (!username || !password) {
+    const { username, password, guestCart, guestWishlist } = req.body || {};
+    if (!isValidString(username, 1, 100) || !isValidString(password, 1, 128)) {
       return res.status(400).json({ error: 'Username and password required.' });
     }
 
+    const cleanUsername = username.trim();
+
     if (isMongoConnected) {
       const user = await User.findOne({ 
-        $or: [{ username }, { email: username }] 
+        $or: [
+          { username: cleanUsername },
+          { email: cleanUsername.toLowerCase() }
+        ] 
       });
-      if (!user || user.password !== password) {
+      if (!user) {
+        return res.status(401).json({ error: 'Invalid credentials.' });
+      }
+
+      // Verify bcrypt hash with auto-migration for legacy accounts
+      let isMatch = false;
+      if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
+        isMatch = await bcrypt.compare(password, user.password);
+      } else {
+        isMatch = (user.password === password);
+        if (isMatch) {
+          user.password = await bcrypt.hash(password, 10);
+          await user.save();
+        }
+      }
+
+      if (!isMatch) {
         return res.status(401).json({ error: 'Invalid credentials.' });
       }
 
@@ -412,8 +543,25 @@ app.post('/api/users/login', async (req, res) => {
     }
 
     // In-memory fallback
-    const user = inMemory.users.find(u => (u.username === username || u.email === username) && u.password === password);
+    const user = inMemory.users.find(u => 
+      (u.username && u.username.toLowerCase() === cleanUsername.toLowerCase()) || 
+      (u.email && u.email.toLowerCase() === cleanUsername.toLowerCase())
+    );
     if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials.' });
+    }
+
+    let isMatch = false;
+    if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
+      isMatch = await bcrypt.compare(password, user.password);
+    } else {
+      isMatch = (user.password === password);
+      if (isMatch) {
+        user.password = await bcrypt.hash(password, 10);
+      }
+    }
+
+    if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
 
@@ -444,21 +592,24 @@ app.post('/api/users/login', async (req, res) => {
 // Dedicated endpoint to synchronize guest cart & wishlist into an existing user account
 app.post('/api/user/sync', async (req, res) => {
   try {
-    const { userId, email, guestCart, guestWishlist } = req.body;
-    if (!userId && !email) {
-      return res.status(400).json({ error: 'User identifier (userId or email) required for synchronization.' });
+    const { userId, email, guestCart, guestWishlist } = req.body || {};
+    const safeUserId = typeof userId === 'string' ? userId.trim() : '';
+    const safeEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+    if (!safeUserId && !safeEmail) {
+      return res.status(400).json({ error: 'Valid user identifier (userId or email) required for synchronization.' });
     }
 
     if (isMongoConnected) {
       const orConditions = [];
-      if (userId) {
-        orConditions.push({ _id: userId });
-        if (mongoose.Types.ObjectId.isValid(userId)) {
-          orConditions.push({ _id: new mongoose.Types.ObjectId(userId) });
+      if (safeUserId) {
+        orConditions.push({ _id: safeUserId });
+        if (mongoose.Types.ObjectId.isValid(safeUserId)) {
+          orConditions.push({ _id: new mongoose.Types.ObjectId(safeUserId) });
         }
       }
-      if (email) {
-        orConditions.push({ email: { $regex: new RegExp(`^${email.trim()}$`, 'i') } });
+      if (safeEmail && isValidEmail(safeEmail)) {
+        orConditions.push({ email: { $regex: new RegExp(`^${escapeRegex(safeEmail)}$`, 'i') } });
       }
       const user = await User.findOne(orConditions.length > 1 ? { $or: orConditions } : orConditions[0]);
       if (!user) {
@@ -478,8 +629,8 @@ app.post('/api/user/sync', async (req, res) => {
 
     // In-memory fallback
     const user = inMemory.users.find(u =>
-      (userId && (u.id === userId || u._id === userId)) ||
-      (email && u.email && u.email.toLowerCase() === email.trim().toLowerCase())
+      (safeUserId && (u.id === safeUserId || u._id === safeUserId)) ||
+      (safeEmail && u.email && u.email.toLowerCase() === safeEmail)
     );
 
     if (!user) {
@@ -503,22 +654,22 @@ app.post('/api/user/sync', async (req, res) => {
 // Retrieve an authenticated user's current saved cart and wishlist
 app.get('/api/user/cart-wishlist', async (req, res) => {
   try {
-    const userId = (req.query.userId || '').trim();
-    const email = (req.query.email || '').trim().toLowerCase();
-    if (!userId && !email) {
+    const rawUserId = typeof req.query.userId === 'string' ? req.query.userId.trim() : '';
+    const rawEmail = typeof req.query.email === 'string' ? req.query.email.trim().toLowerCase() : '';
+    if (!rawUserId && !rawEmail) {
       return res.status(400).json({ error: 'userId or email query parameter required.' });
     }
 
     if (isMongoConnected) {
       const orConditions = [];
-      if (userId) {
-        orConditions.push({ _id: userId });
-        if (mongoose.Types.ObjectId.isValid(userId)) {
-          orConditions.push({ _id: new mongoose.Types.ObjectId(userId) });
+      if (rawUserId) {
+        orConditions.push({ _id: rawUserId });
+        if (mongoose.Types.ObjectId.isValid(rawUserId)) {
+          orConditions.push({ _id: new mongoose.Types.ObjectId(rawUserId) });
         }
       }
-      if (email) {
-        orConditions.push({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
+      if (rawEmail && isValidEmail(rawEmail)) {
+        orConditions.push({ email: { $regex: new RegExp(`^${escapeRegex(rawEmail)}$`, 'i') } });
       }
       const user = await User.findOne(orConditions.length > 1 ? { $or: orConditions } : orConditions[0]);
       if (!user) {
@@ -531,8 +682,8 @@ app.get('/api/user/cart-wishlist', async (req, res) => {
     }
 
     const user = inMemory.users.find(u =>
-      (userId && (u.id === userId || u._id === userId)) ||
-      (email && u.email && u.email.toLowerCase() === email)
+      (rawUserId && (u.id === rawUserId || u._id === rawUserId)) ||
+      (rawEmail && u.email && u.email.toLowerCase() === rawEmail)
     );
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
@@ -550,41 +701,47 @@ app.get('/api/user/cart-wishlist', async (req, res) => {
 // Update an authenticated user's cart and wishlist directly (e.g. real-time background autosave)
 app.post('/api/user/cart-wishlist', async (req, res) => {
   try {
-    const { userId, email, cart, wishlist } = req.body;
-    if (!userId && !email) {
+    const { userId, email, cart, wishlist } = req.body || {};
+    const safeUserId = typeof userId === 'string' ? userId.trim() : '';
+    const safeEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+    if (!safeUserId && !safeEmail) {
       return res.status(400).json({ error: 'userId or email required.' });
     }
 
+    const safeCart = Array.isArray(cart) ? cart.slice(0, 100) : [];
+    const safeWishlist = Array.isArray(wishlist) ? wishlist.slice(0, 100) : [];
+
     if (isMongoConnected) {
       const orConditions = [];
-      if (userId) {
-        orConditions.push({ _id: userId });
-        if (mongoose.Types.ObjectId.isValid(userId)) {
-          orConditions.push({ _id: new mongoose.Types.ObjectId(userId) });
+      if (safeUserId) {
+        orConditions.push({ _id: safeUserId });
+        if (mongoose.Types.ObjectId.isValid(safeUserId)) {
+          orConditions.push({ _id: new mongoose.Types.ObjectId(safeUserId) });
         }
       }
-      if (email) {
-        orConditions.push({ email: { $regex: new RegExp(`^${email.trim()}$`, 'i') } });
+      if (safeEmail && isValidEmail(safeEmail)) {
+        orConditions.push({ email: { $regex: new RegExp(`^${escapeRegex(safeEmail)}$`, 'i') } });
       }
       const user = await User.findOne(orConditions.length > 1 ? { $or: orConditions } : orConditions[0]);
       if (!user) {
         return res.status(404).json({ error: 'User not found.' });
       }
-      if (Array.isArray(cart)) user.cart = cart;
-      if (Array.isArray(wishlist)) user.wishlist = wishlist;
+      if (Array.isArray(cart)) user.cart = safeCart;
+      if (Array.isArray(wishlist)) user.wishlist = safeWishlist;
       await user.save();
       return res.json({ success: true, cart: user.cart, wishlist: user.wishlist });
     }
 
     const user = inMemory.users.find(u =>
-      (userId && (u.id === userId || u._id === userId)) ||
-      (email && u.email && u.email.toLowerCase() === email.trim().toLowerCase())
+      (safeUserId && (u.id === safeUserId || u._id === safeUserId)) ||
+      (safeEmail && u.email && u.email.toLowerCase() === safeEmail)
     );
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
     }
-    if (Array.isArray(cart)) user.cart = cart;
-    if (Array.isArray(wishlist)) user.wishlist = wishlist;
+    if (Array.isArray(cart)) user.cart = safeCart;
+    if (Array.isArray(wishlist)) user.wishlist = safeWishlist;
     return res.json({ success: true, cart: user.cart, wishlist: user.wishlist });
   } catch (err) {
     console.error('Save cart & wishlist error:', err);
@@ -595,25 +752,26 @@ app.post('/api/user/cart-wishlist', async (req, res) => {
 // Get user's orders by route param
 app.get('/api/users/:userId/orders', async (req, res) => {
   try {
-    const { userId } = req.params;
-    const emailParam = (req.query.email || '').trim().toLowerCase();
+    const rawUserId = typeof req.params.userId === 'string' ? req.params.userId.trim() : '';
+    const emailParam = typeof req.query.email === 'string' ? req.query.email.trim().toLowerCase() : '';
+
     if (isMongoConnected) {
       const orConditions = [];
-      if (userId) {
-        orConditions.push({ userId: String(userId) });
-        if (mongoose.Types.ObjectId.isValid(userId)) {
-          orConditions.push({ userId: new mongoose.Types.ObjectId(userId) });
+      if (rawUserId) {
+        orConditions.push({ userId: rawUserId });
+        if (mongoose.Types.ObjectId.isValid(rawUserId)) {
+          orConditions.push({ userId: new mongoose.Types.ObjectId(rawUserId) });
         }
       }
-      if (emailParam) {
-        orConditions.push({ email: { $regex: new RegExp(`^${emailParam}$`, 'i') } });
+      if (emailParam && isValidEmail(emailParam)) {
+        orConditions.push({ email: { $regex: new RegExp(`^${escapeRegex(emailParam)}$`, 'i') } });
       }
       const filter = orConditions.length > 1 ? { $or: orConditions } : (orConditions[0] || {});
       const orders = await Order.find(filter).sort({ createdAt: -1 });
       return res.json(orders);
     }
     const orders = inMemory.orders.filter(o => 
-      o.userId === userId || (emailParam && o.email && o.email.toLowerCase() === emailParam)
+      (rawUserId && o.userId === rawUserId) || (emailParam && o.email && o.email.toLowerCase() === emailParam)
     );
     res.json(orders);
   } catch (err) {
@@ -625,22 +783,22 @@ app.get('/api/users/:userId/orders', async (req, res) => {
 // Dedicated customer orders endpoint: GET /api/user/orders?userId=...&email=...
 app.get('/api/user/orders', async (req, res) => {
   try {
-    const userId = (req.query.userId || '').trim();
-    const email = (req.query.email || '').trim().toLowerCase();
-    if (!userId && !email) {
+    const rawUserId = typeof req.query.userId === 'string' ? req.query.userId.trim() : '';
+    const rawEmail = typeof req.query.email === 'string' ? req.query.email.trim().toLowerCase() : '';
+    if (!rawUserId && !rawEmail) {
       return res.status(400).json({ error: 'User identifier or email required.' });
     }
 
     if (isMongoConnected) {
       const orConditions = [];
-      if (userId) {
-        orConditions.push({ userId: String(userId) });
-        if (mongoose.Types.ObjectId.isValid(userId)) {
-          orConditions.push({ userId: new mongoose.Types.ObjectId(userId) });
+      if (rawUserId) {
+        orConditions.push({ userId: rawUserId });
+        if (mongoose.Types.ObjectId.isValid(rawUserId)) {
+          orConditions.push({ userId: new mongoose.Types.ObjectId(rawUserId) });
         }
       }
-      if (email) {
-        orConditions.push({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
+      if (rawEmail && isValidEmail(rawEmail)) {
+        orConditions.push({ email: { $regex: new RegExp(`^${escapeRegex(rawEmail)}$`, 'i') } });
       }
       const query = orConditions.length > 1 ? { $or: orConditions } : (orConditions[0] || {});
       const orders = await Order.find(query).sort({ createdAt: -1 });
@@ -649,8 +807,8 @@ app.get('/api/user/orders', async (req, res) => {
 
     // In-memory fallback
     const orders = inMemory.orders.filter(o => {
-      const matchId = userId && o.userId === userId;
-      const matchEmail = email && o.email && o.email.toLowerCase() === email;
+      const matchId = rawUserId && o.userId === rawUserId;
+      const matchEmail = rawEmail && o.email && o.email.toLowerCase() === rawEmail;
       return matchId || matchEmail;
     });
     res.json(orders);
@@ -660,17 +818,51 @@ app.get('/api/user/orders', async (req, res) => {
   }
 });
 
-// Place order endpoint
+// Place order endpoint with full boundary validation
 app.post('/api/orders', async (req, res) => {
   try {
-    const { name, email, phone, address, items, total, userId } = req.body;
-    if (!name || !email || !phone || !address || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'Missing required fields or empty cart.' });
+    const { name, email, phone, address, items, total, userId } = req.body || {};
+
+    if (!isValidString(name, 2, 80)) {
+      return res.status(400).json({ error: 'Customer name is required (2-80 characters).' });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Please provide a valid email address.' });
+    }
+    if (!isValidPhone(phone)) {
+      return res.status(400).json({ error: 'Please provide a valid phone number.' });
+    }
+    if (!isValidString(address, 5, 250)) {
+      return res.status(400).json({ error: 'Delivery address is required (5-250 characters).' });
     }
 
+    const itemsValidation = validateOrderItems(items);
+    if (!itemsValidation.valid) {
+      return res.status(400).json({ error: itemsValidation.error });
+    }
+
+    const submittedTotal = Number(total);
+    if (isNaN(submittedTotal) || submittedTotal < 0) {
+      return res.status(400).json({ error: 'Invalid order total.' });
+    }
+
+    // Enforce total authenticity against verified items calculation
+    const orderTotal = Math.abs(submittedTotal - itemsValidation.calculatedTotal) > 0.05
+      ? itemsValidation.calculatedTotal
+      : Math.round(submittedTotal * 100) / 100;
+
+    const cleanUserId = (typeof userId === 'string' && userId.trim()) ? userId.trim().substring(0, 60) : null;
+
     if (isMongoConnected) {
-      const orderData = { name, email, phone, address, items, total };
-      if (userId) orderData.userId = userId;
+      const orderData = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
+        address: address.trim(),
+        items: itemsValidation.items,
+        total: orderTotal
+      };
+      if (cleanUserId) orderData.userId = cleanUserId;
       const order = new Order(orderData);
       await order.save();
       return res.status(201).json({ 
@@ -683,14 +875,14 @@ app.post('/api/orders', async (req, res) => {
     // In-memory fallback
     const newOrder = {
       _id: 'ord_' + Math.random().toString(36).substring(2, 9),
-      name,
-      email,
-      phone,
-      address,
-      items,
-      total: Number(total) || 0,
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone.trim(),
+      address: address.trim(),
+      items: itemsValidation.items,
+      total: orderTotal,
       status: 'Pending',
-      userId: userId || null,
+      userId: cleanUserId,
       createdAt: new Date().toISOString()
     };
     inMemory.orders.unshift(newOrder);
@@ -709,23 +901,23 @@ app.post('/api/orders', async (req, res) => {
 app.post('/api/contact', async (req, res) => {
   try {
     const { name, email, subject, message } = req.body || {};
-    if (!name || !email || !message) {
-      return res.status(400).json({ success: false, error: 'Name, email, and message are required.' });
+    if (!isValidString(name, 2, 100)) {
+      return res.status(400).json({ success: false, error: 'Name is required (2-100 characters).' });
     }
-
-    const cleanName = String(name).trim();
-    const cleanEmail = String(email).trim().toLowerCase();
-    const cleanSubject = (subject && String(subject).trim()) || 'General Inquiry';
-    const cleanMessage = String(message).trim();
-
-    // Email validation
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    if (!isValidEmail(email)) {
       return res.status(400).json({ success: false, error: 'Please provide a valid email address.' });
     }
-
-    if (cleanMessage.length < 5) {
-      return res.status(400).json({ success: false, error: 'Message must be at least 5 characters long.' });
+    if (!isValidString(message, 5, 3000)) {
+      return res.status(400).json({ success: false, error: 'Message must be between 5 and 3000 characters long.' });
     }
+    if (subject !== undefined && subject !== null && !isValidString(subject, 1, 150)) {
+      return res.status(400).json({ success: false, error: 'Subject must be under 150 characters.' });
+    }
+
+    const cleanName = name.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanSubject = (subject && typeof subject === 'string' && subject.trim()) ? subject.trim() : 'General Inquiry';
+    const cleanMessage = message.trim();
 
     if (isMongoConnected) {
       const contactRecord = new ContactMessage({
@@ -771,21 +963,22 @@ app.post('/api/contact', async (req, res) => {
 // Admin login endpoint
 app.post('/api/admin/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ success: false, message: 'Username and password are required' });
+    const { username, password } = req.body || {};
+    if (!isValidString(username, 1, 100) || !isValidString(password, 1, 128)) {
+      return res.status(400).json({ success: false, message: 'Valid username and password required' });
     }
 
+    const cleanUsername = username.trim();
     let adminUser = null;
     let passwordHash = null;
 
     if (isMongoConnected) {
-      adminUser = await Admin.findOne({ username });
+      adminUser = await Admin.findOne({ username: cleanUsername });
       if (adminUser) {
         passwordHash = adminUser.password;
       }
     } else {
-      adminUser = inMemory.admins.find(a => a.username === username);
+      adminUser = inMemory.admins.find(a => a.username === cleanUsername);
       if (adminUser) {
         passwordHash = adminUser.password;
       }
@@ -833,18 +1026,15 @@ app.post('/api/admin/login', async (req, res) => {
 // Create admin user endpoint (Protected: only authenticated admins can create admins)
 app.post('/api/admin/create', authenticateAdmin, async (req, res) => {
   try {
-    const { username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ success: false, message: 'New admin username and password required' });
+    const { username, password } = req.body || {};
+    if (!isValidString(username, 3, 50)) {
+      return res.status(400).json({ success: false, message: 'Admin username must be between 3 and 50 characters' });
     }
-    const cleanUsername = String(username).trim();
-    if (!cleanUsername) {
-      return res.status(400).json({ success: false, message: 'Username cannot be blank' });
-    }
-    if (password.length < 6) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    if (!isValidString(password, 6, 128)) {
+      return res.status(400).json({ success: false, message: 'Password must be between 6 and 128 characters' });
     }
 
+    const cleanUsername = username.trim();
     const hashedPassword = await bcrypt.hash(password, 10);
 
     if (isMongoConnected) {
@@ -914,15 +1104,25 @@ app.get('/api/admin/orders', authenticateAdmin, async (req, res) => {
 app.put('/api/admin/orders/:id', authenticateAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status } = req.body || {};
+    const validStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+
+    if (!id || typeof id !== 'string' || id.trim().length === 0 || id.length > 100) {
+      return res.status(400).json({ error: 'Valid order ID required.' });
+    }
+    if (!status || typeof status !== 'string' || !validStatuses.includes(status)) {
+      return res.status(400).json({ error: `Invalid order status. Allowed values: ${validStatuses.join(', ')}` });
+    }
+
+    const cleanId = id.trim();
     if (isMongoConnected) {
       let order = null;
-      if (mongoose.Types.ObjectId.isValid(id)) {
-        order = await Order.findByIdAndUpdate(id, { status }, { new: true });
+      if (mongoose.Types.ObjectId.isValid(cleanId)) {
+        order = await Order.findByIdAndUpdate(cleanId, { status }, { new: true });
       }
       if (!order) {
         // Fallback to checking in-memory orders if hybrid or seed order
-        const memOrder = inMemory.orders.find(o => o._id === id);
+        const memOrder = inMemory.orders.find(o => o._id === cleanId);
         if (memOrder) {
           memOrder.status = status;
           return res.json(memOrder);
