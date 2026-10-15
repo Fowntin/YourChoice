@@ -2097,5 +2097,146 @@ function setupContactForm() {
   updateDirectMailto();
 }
 
+// ========================================
+// SUPPORT & FAQ MODAL CONTROLLERS
+// ========================================
 
+function openContactModal() {
+  const modal = document.getElementById('contact-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  
+  // Pre-fill user details if logged in
+  try {
+    const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
+    if (userLoggedIn) {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const nameInput = document.getElementById('contact-name');
+      const emailInput = document.getElementById('contact-email');
+      if (user.name && nameInput && !nameInput.value) nameInput.value = user.name;
+      if (user.email && emailInput && !emailInput.value) emailInput.value = user.email;
+    }
+  } catch (e) {}
 
+  setTimeout(() => {
+    const firstInput = document.getElementById('contact-name');
+    if (firstInput) firstInput.focus();
+  }, 100);
+}
+
+function closeContactModal() {
+  const modal = document.getElementById('contact-modal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  const faqModal = document.getElementById('faq-modal');
+  if (!faqModal || faqModal.style.display === 'none') {
+    document.body.style.overflow = '';
+  }
+}
+
+function openFaqModal(sectionId = null) {
+  const modal = document.getElementById('faq-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+
+  if (sectionId) {
+    const targetDetails = document.getElementById(`faq-item-${sectionId}`);
+    if (targetDetails) {
+      const allDetails = modal.querySelectorAll('.faq-item');
+      allDetails.forEach(d => d.removeAttribute('open'));
+      targetDetails.setAttribute('open', 'true');
+      setTimeout(() => {
+        targetDetails.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
+    }
+  }
+}
+
+function closeFaqModal() {
+  const modal = document.getElementById('faq-modal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  const contactModal = document.getElementById('contact-modal');
+  if (!contactModal || contactModal.style.display === 'none') {
+    document.body.style.overflow = '';
+  }
+}
+
+function selectCategoryFromFooter(category) {
+  const btn = document.querySelector(`.filter-btn[data-category="${category}"]`);
+  if (btn) {
+    btn.click();
+  }
+  const productsSection = document.getElementById('products-section') || document.getElementById('products-grid');
+  if (productsSection) {
+    const navbar = document.querySelector('.navbar');
+    const offset = navbar ? navbar.offsetHeight + 10 : 70;
+    const topPos = productsSection.getBoundingClientRect().top + window.pageYOffset - offset;
+    window.scrollTo({
+      top: Math.max(0, topPos),
+      behavior: 'smooth'
+    });
+  }
+}
+
+// Global Escape listener for support modals
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const contactModal = document.getElementById('contact-modal');
+    if (contactModal && contactModal.style.display === 'flex') {
+      closeContactModal();
+    }
+    const faqModal = document.getElementById('faq-modal');
+    if (faqModal && faqModal.style.display === 'flex') {
+      closeFaqModal();
+    }
+  }
+});
+
+// ========================================
+// RESPONSIVE FOOTER ACCORDIONS (MOBILE)
+// ========================================
+
+function toggleFooterAccordion(button) {
+  if (window.innerWidth > 640) return; // Inactive on desktop and tablet
+  const col = button.closest('.footer-accordion-col');
+  if (!col) return;
+
+  const isOpen = col.classList.contains('is-open');
+
+  // Close sibling accordion panels for a clean single-open mobile drawer experience
+  const allAccordionCols = document.querySelectorAll('.footer-accordion-col');
+  allAccordionCols.forEach((c) => {
+    if (c !== col) {
+      c.classList.remove('is-open');
+      const toggle = c.querySelector('.footer-accordion-toggle');
+      if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  if (isOpen) {
+    col.classList.remove('is-open');
+    button.setAttribute('aria-expanded', 'false');
+  } else {
+    col.classList.add('is-open');
+    button.setAttribute('aria-expanded', 'true');
+  }
+}
+
+// Sync ARIA expanded states across screen resizes
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 640) {
+    document.querySelectorAll('.footer-accordion-toggle').forEach((toggle) => {
+      toggle.setAttribute('aria-expanded', 'true');
+    });
+  } else {
+    document.querySelectorAll('.footer-accordion-col').forEach((col) => {
+      const toggle = col.querySelector('.footer-accordion-toggle');
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', col.classList.contains('is-open') ? 'true' : 'false');
+      }
+    });
+  }
+});
