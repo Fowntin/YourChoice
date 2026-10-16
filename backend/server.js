@@ -6,7 +6,13 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
-const nodemailer = require('nodemailer');
+
+let nodemailer;
+try {
+  nodemailer = require('nodemailer');
+} catch {
+  nodemailer = null;
+}
 
 // Load environment variables from both backend/.env and root .env
 dotenv.config({ path: path.resolve(__dirname, '.env'), override: true });
@@ -613,14 +619,31 @@ function escapeHtml(str) {
 function normalizeSmtpHost(rawHost) {
   if (!rawHost || typeof rawHost !== 'string') return '';
   let host = rawHost.trim();
-  // Strip protocol prefixes like 'smtp://', 'https://', 'http://', '://', or leading colons/slashes
-  host = host.replace(/^[a-zA-Z]+:\/\//, '').replace(/^[:/]+/, '').trim();
+  // Strip surrounding quotes
+  host = host.replace(/^["']|["']$/g, '').trim();
+
+  // Strip any protocol or scheme prefix (e.g., https://, http://, smtp://, smtps://, ://, //)
+  while (/^[a-zA-Z0-9+.-]*:?\/\/|^[:/]+/.test(host)) {
+    host = host.replace(/^[a-zA-Z0-9+.-]*:?\/\//, '').replace(/^[:/]+/, '').trim();
+  }
+
+  // Strip any URL path, query string, or hash
+  host = host.split('/')[0].split('?')[0].split('#')[0].trim();
+
+  // Strip port if attached to hostname
+  if (host.includes(':')) {
+    const parts = host.split(':');
+    if (parts.length === 2 && /^\d+$/.test(parts[1])) {
+      host = parts[0];
+    }
+  }
+
   // Strip trailing slashes or colons
-  host = host.replace(/[/:]+$/, '');
+  host = host.replace(/[/:]+$/, '').trim();
 
   // Auto-normalize known email provider SMTP hosts
   const lower = host.toLowerCase();
-  if (lower === 'resend.com' || lower.endsWith('.resend.com')) {
+  if (lower === 'resend.com' || lower === 'api.resend.com' || lower.endsWith('.resend.com')) {
     return 'smtp.resend.com';
   }
   if (lower === 'brevo.com' || lower.endsWith('.brevo.com') || lower.includes('sendinblue')) {
@@ -680,13 +703,15 @@ async function sendPasswordResetEmail({ toEmail, resetUrl, userName }) {
 </body>
 </html>`;
 
-  // 1. Try real SMTP email dispatch if SMTP credentials are provided
+  // 1. Try real SMTP email dispatch if SMTP credentials and nodemailer are available
   const rawHost = process.env.SMTP_HOST || '';
   const cleanHost = normalizeSmtpHost(rawHost);
+  const smtpUser = process.env.SMTP_USER || (cleanHost === 'smtp.resend.com' && process.env.SMTP_PASS ? 'resend' : '');
+  const smtpPass = process.env.SMTP_PASS || process.env.RESEND_API_KEY || '';
 
-  if (cleanHost && process.env.SMTP_USER) {
+  if (cleanHost && smtpPass && nodemailer) {
     try {
-      const port = parseInt(process.env.SMTP_PORT, 10) || 587;
+      const port = parseInt(process.env.SMTP_PORT, 10) || (cleanHost === 'smtp.resend.com' ? 587 : 587);
       const secure = process.env.SMTP_SECURE === 'true' || port === 465;
 
       const transporter = nodemailer.createTransport({
@@ -694,8 +719,8 @@ async function sendPasswordResetEmail({ toEmail, resetUrl, userName }) {
         port,
         secure,
         auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
+          user: smtpUser,
+          pass: smtpPass,
         },
       });
 
@@ -827,6 +852,7 @@ app.get('/api/auth/verify-token', async (req, res) => {
 
     return res.json({ valid: true });
   } catch (err) {
+    console.error('Token verification error:', err);
     res.status(500).json({ valid: false, error: 'Failed to verify token.' });
   }
 });
