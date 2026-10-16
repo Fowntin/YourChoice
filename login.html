@@ -36,7 +36,10 @@
         </div>
         
         <div class="form-group">
-          <label for="password">Password *</label>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label for="password" style="margin-bottom: 0;">Password *</label>
+            <a href="#forgot" id="forgot-password-link" style="color: #ff6f00; font-size: 0.85rem; text-decoration: none; font-weight: 500;">Forgot Password?</a>
+          </div>
           <input type="password" id="password" name="password" required maxlength="128" autocomplete="current-password" />
         </div>
         
@@ -47,6 +50,32 @@
       
       <div class="auth-footer">
         <p>Don't have an account? <a href="register.html">Register here</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Forgot Password Modal -->
+  <div id="forgot-modal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65); z-index: 9999; align-items: center; justify-content: center; padding: 1rem;">
+    <div class="auth-card" style="max-width: 440px; position: relative; margin: 0 auto; box-shadow: 0 16px 40px rgba(0,0,0,0.25);">
+      <button type="button" id="close-forgot-modal" aria-label="Close" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; color: #888; cursor: pointer; line-height: 1;">&times;</button>
+      <div class="auth-header" style="margin-bottom: 1.25rem;">
+        <h2 style="color: #ff6f00; font-size: 1.6rem; margin-bottom: 0.35rem;">Reset Password</h2>
+        <p style="color: #666; font-size: 0.95rem;">Enter your email and we'll send you a secure reset link valid for 15 minutes.</p>
+      </div>
+      
+      <form id="forgot-form" class="auth-form" style="gap: 1.25rem;">
+        <div class="form-group">
+          <label for="forgot-email">Account Email *</label>
+          <input type="email" id="forgot-email" name="email" required placeholder="name@example.com" autocomplete="email" />
+        </div>
+        
+        <button type="submit" id="forgot-submit-btn" class="auth-btn" style="font-size: 1rem; padding: 0.75rem;">Send Reset Link</button>
+      </form>
+      
+      <div id="forgot-message" class="auth-message" style="display: none;"></div>
+      
+      <div class="auth-footer" style="margin-top: 1rem;">
+        <p><a href="#" id="back-to-login-btn">Back to Login</a></p>
       </div>
     </div>
   </div>
@@ -174,6 +203,91 @@
         messageEl.className = 'auth-message error';
       }
     });
+
+    // Forgot Password Modal Handlers
+    const forgotModal = document.getElementById('forgot-modal');
+    const forgotLink = document.getElementById('forgot-password-link');
+    const closeForgotModal = document.getElementById('close-forgot-modal');
+    const backToLoginBtn = document.getElementById('back-to-login-btn');
+    const forgotForm = document.getElementById('forgot-form');
+    const forgotEmailInput = document.getElementById('forgot-email');
+    const forgotMessage = document.getElementById('forgot-message');
+    const forgotSubmitBtn = document.getElementById('forgot-submit-btn');
+
+    function openForgotModal() {
+      forgotModal.style.display = 'flex';
+      forgotEmailInput.value = '';
+      forgotMessage.style.display = 'none';
+      forgotMessage.textContent = '';
+      forgotMessage.className = 'auth-message';
+      setTimeout(() => forgotEmailInput.focus(), 50);
+    }
+
+    function hideForgotModal() {
+      forgotModal.style.display = 'none';
+    }
+
+    if (forgotLink) {
+      forgotLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        openForgotModal();
+      });
+    }
+
+    if (closeForgotModal) {
+      closeForgotModal.addEventListener('click', hideForgotModal);
+    }
+
+    if (backToLoginBtn) {
+      backToLoginBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        hideForgotModal();
+      });
+    }
+
+    window.addEventListener('click', function(e) {
+      if (e.target === forgotModal) {
+        hideForgotModal();
+      }
+    });
+
+    if (forgotForm) {
+      forgotForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const email = forgotEmailInput.value.trim();
+        if (!email) return;
+
+        forgotSubmitBtn.disabled = true;
+        forgotSubmitBtn.textContent = 'Sending...';
+        forgotMessage.style.display = 'none';
+
+        try {
+          const res = await fetch('/api/auth/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          const data = await res.json().catch(() => ({}));
+
+          forgotMessage.style.display = 'block';
+          if (res.ok) {
+            forgotMessage.className = 'auth-message success';
+            forgotMessage.textContent = data.message || 'If that email exists, a reset link has been sent.';
+            forgotForm.reset();
+          } else {
+            forgotMessage.className = 'auth-message error';
+            forgotMessage.textContent = data.error || 'Failed to request reset link. Please try again.';
+          }
+        } catch (err) {
+          forgotMessage.style.display = 'block';
+          forgotMessage.className = 'auth-message error';
+          forgotMessage.textContent = 'Network error. Please try again.';
+        } finally {
+          forgotSubmitBtn.disabled = false;
+          forgotSubmitBtn.textContent = 'Send Reset Link';
+        }
+      });
+    }
   </script>
 </body>
 </html> 

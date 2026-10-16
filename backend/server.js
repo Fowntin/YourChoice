@@ -1,10 +1,12 @@
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
+const nodemailer = require('nodemailer');
 
 // Load environment variables from both backend/.env and root .env
 dotenv.config({ path: path.resolve(__dirname, '.env'), override: true });
@@ -113,6 +115,8 @@ const userSchema = new mongoose.Schema({
   address: { type: String },
   cart: { type: Array, default: [] },
   wishlist: { type: Array, default: [] },
+  resetPasswordToken: { type: String, default: null },
+  resetPasswordExpires: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -462,6 +466,8 @@ app.post('/api/users/register', async (req, res) => {
       address: cleanAddress,
       cart: initialCart,
       wishlist: initialWishlist,
+      resetPasswordToken: null,
+      resetPasswordExpires: null,
       createdAt: new Date().toISOString()
     };
     inMemory.users.push(newUser);
@@ -588,6 +594,315 @@ app.post('/api/users/login', async (req, res) => {
     res.status(500).json({ error: 'Login failed.' });
   }
 });
+
+// ========================================================
+// PASSWORD RESET WORKFLOW (Nodemailer, Crypto Token & Bcrypt)
+// ========================================================
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Clean and normalize SMTP host string (strips protocol prefixes, colons, slashes and auto-corrects provider hosts)
+function normalizeSmtpHost(rawHost) {
+  if (!rawHost || typeof rawHost !== 'string') return '';
+  let host = rawHost.trim();
+  // Strip protocol prefixes like 'smtp://', 'https://', 'http://', '://', or leading colons/slashes
+  host = host.replace(/^[a-zA-Z]+:\/\//, '').replace(/^[:/]+/, '').trim();
+  // Strip trailing slashes or colons
+  host = host.replace(/[/:]+$/, '');
+
+  // Auto-normalize known email provider SMTP hosts
+  const lower = host.toLowerCase();
+  if (lower === 'resend.com' || lower.endsWith('.resend.com')) {
+    return 'smtp.resend.com';
+  }
+  if (lower === 'brevo.com' || lower.endsWith('.brevo.com') || lower.includes('sendinblue')) {
+    return 'smtp-relay.brevo.com';
+  }
+  if (lower === 'gmail.com') {
+    return 'smtp.gmail.com';
+  }
+  if (lower === 'sendgrid.com' || lower === 'sendgrid.net') {
+    return 'smtp.sendgrid.net';
+  }
+  if (lower === 'mailgun.org' || lower === 'mailgun.com') {
+    return 'smtp.mailgun.org';
+  }
+  return host;
+}
+
+// Dispatches clean branded HTML password reset email via Nodemailer SMTP with console fallback
+async function sendPasswordResetEmail({ toEmail, resetUrl, userName }) {
+  const fromAddress = process.env.FROM_EMAIL || process.env.SMTP_FROM || '"YourChoice Support" <no-reply@yourchoice.com>';
+  const safeName = escapeHtml(userName || 'Customer');
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your Password - YourChoice</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+    .wrapper { max-width: 580px; margin: 0 auto; background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 36px 28px; }
+    .brand { font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px; margin-bottom: 24px; }
+    .heading { font-size: 20px; font-weight: 600; color: #f1f5f9; margin-bottom: 16px; }
+    .paragraph { font-size: 15px; line-height: 1.6; color: #cbd5e1; margin-bottom: 20px; }
+    .btn-container { text-align: center; margin: 32px 0; }
+    .btn { display: inline-block; background-color: #2563eb; color: #ffffff !important; text-decoration: none; font-weight: 600; font-size: 15px; padding: 13px 28px; border-radius: 8px; }
+    .url-box { font-size: 12px; word-break: break-all; color: #60a5fa; background: #0f172a; padding: 12px; border-radius: 6px; border: 1px solid #334155; margin-bottom: 20px; }
+    .footer { font-size: 13px; line-height: 1.5; color: #94a3b8; border-top: 1px solid #334155; padding-top: 18px; margin-top: 28px; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="brand">YourChoice</div>
+    <div class="heading">Password Reset Request</div>
+    <p class="paragraph">Hello ${safeName},</p>
+    <p class="paragraph">We received a request to reset the password for your YourChoice account. Click the button below to choose a new password. For your security, this link is valid for <strong>15 minutes</strong>.</p>
+    <div class="btn-container">
+      <a href="${resetUrl}" class="btn" target="_blank" rel="noopener noreferrer">Reset Password</a>
+    </div>
+    <p class="paragraph" style="font-size: 13px; color: #94a3b8;">If you are having trouble clicking the button, copy and paste this link into your browser:</p>
+    <div class="url-box">${resetUrl}</div>
+    <div class="footer">
+      <p>If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  // 1. Try real SMTP email dispatch if SMTP credentials are provided
+  const rawHost = process.env.SMTP_HOST || '';
+  const cleanHost = normalizeSmtpHost(rawHost);
+
+  if (cleanHost && process.env.SMTP_USER) {
+    try {
+      const port = parseInt(process.env.SMTP_PORT, 10) || 587;
+      const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+
+      const transporter = nodemailer.createTransport({
+        host: cleanHost,
+        port,
+        secure,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      const info = await transporter.sendMail({
+        from: fromAddress,
+        to: toEmail,
+        subject: 'Reset Your Password - YourChoice',
+        html: htmlContent,
+        text: `Reset your YourChoice password using this link (valid for 15 minutes): ${resetUrl}`,
+      });
+
+      console.log(`📧 Password reset email dispatched via SMTP (${cleanHost}:${port}) to ${toEmail} (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId };
+    } catch (smtpErr) {
+      console.error(`⚠️ SMTP dispatch error to ${toEmail}:`, smtpErr.message);
+    }
+  }
+
+  // 2. Resilient Console Fallback (Development, Testing & Easy Verification)
+  console.log('════════════════════════════════════════════════════════════');
+  console.log(`📧 [MOCK EMAIL SERVICE] Password Reset Email to: ${toEmail}`);
+  console.log(`🔗 Reset URL: ${resetUrl}`);
+  console.log('⏰ Expiration: 15 minutes from request time');
+  console.log('════════════════════════════════════════════════════════════');
+  return { success: true, simulated: true, resetUrl };
+}
+
+// Generic 200 response to prevent user enumeration
+const FORGOT_PASSWORD_GENERIC_RESPONSE = {
+  success: true,
+  message: 'If that email exists, a reset link has been sent.'
+};
+
+// Route 1: Request Password Reset Link (POST /api/auth/forgot-password)
+async function handleForgotPassword(req, res) {
+  try {
+    const { email } = req.body || {};
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Please provide an email address.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    if (!isValidEmail(cleanEmail)) {
+      return res.status(400).json({ error: 'Please provide a valid email address.' });
+    }
+
+    // Configurable base domain via APP_URL env variable with fallback to host header
+    const domain = (process.env.APP_URL || process.env.CLIENT_URL || 
+      (req.headers.host ? `${req.protocol || 'http'}://${req.headers.host}` : 'http://localhost:3000')
+    ).replace(/\/+$/, '');
+
+    // Cryptographically secure token using native Node.js crypto
+    const token = crypto.randomBytes(32).toString('hex');
+    // Exactly 15 minutes from now
+    const expirationDate = new Date(Date.now() + 15 * 60 * 1000);
+
+    let userFound = false;
+    let targetUserName = '';
+
+    if (isMongoConnected) {
+      const user = await User.findOne({
+        email: { $regex: new RegExp(`^${escapeRegex(cleanEmail)}$`, 'i') }
+      });
+      if (user) {
+        userFound = true;
+        targetUserName = user.name || user.username || '';
+        user.resetPasswordToken = token;
+        user.resetPasswordExpires = expirationDate;
+        await user.save();
+      }
+    } else {
+      const user = inMemory.users.find(u => u.email && u.email.toLowerCase() === cleanEmail);
+      if (user) {
+        userFound = true;
+        targetUserName = user.name || user.username || '';
+        user.resetPasswordToken = token;
+        user.resetPasswordExpires = expirationDate;
+      }
+    }
+
+    if (userFound) {
+      const resetUrl = `${domain}/reset-password?token=${token}`;
+      await sendPasswordResetEmail({
+        toEmail: cleanEmail,
+        resetUrl,
+        userName: targetUserName,
+      });
+    }
+
+    // Always return generic 200 response to prevent user enumeration
+    return res.status(200).json(FORGOT_PASSWORD_GENERIC_RESPONSE);
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ error: 'Failed to process password reset request.' });
+  }
+}
+
+app.post('/api/auth/forgot-password', handleForgotPassword);
+app.post('/api/users/forgot-password', handleForgotPassword);
+
+// Optional helper to check token validity before displaying reset form
+app.get('/api/auth/verify-token', async (req, res) => {
+  try {
+    const rawToken = (req.query && req.query.token) || (req.body && req.body.token);
+    if (!rawToken || typeof rawToken !== 'string' || rawToken.trim() === '') {
+      return res.status(400).json({ valid: false, error: 'Token is invalid or has expired.' });
+    }
+
+    const cleanToken = rawToken.trim();
+    const now = Date.now();
+    let user = null;
+
+    if (isMongoConnected) {
+      user = await User.findOne({
+        resetPasswordToken: cleanToken,
+        resetPasswordExpires: { $gt: now }
+      });
+    } else {
+      user = inMemory.users.find(u =>
+        u.resetPasswordToken === cleanToken &&
+        u.resetPasswordExpires &&
+        new Date(u.resetPasswordExpires).getTime() > now
+      );
+    }
+
+    if (!user) {
+      return res.status(400).json({ valid: false, error: 'Token is invalid or has expired.' });
+    }
+
+    return res.json({ valid: true });
+  } catch (err) {
+    res.status(500).json({ valid: false, error: 'Failed to verify token.' });
+  }
+});
+
+// Route 2: Execute Password Reset (POST /api/auth/reset-password)
+async function handleResetPassword(req, res) {
+  try {
+    const token = (req.body && req.body.token) || (req.query && req.query.token);
+    const newPassword = req.body && (req.body.newPassword !== undefined ? req.body.newPassword : req.body.password);
+
+    if (!token || typeof token !== 'string' || token.trim() === '') {
+      return res.status(400).json({ error: 'Token is invalid or has expired.' });
+    }
+
+    if (!isValidString(newPassword, 6, 128)) {
+      return res.status(400).json({ error: 'Password must be between 6 and 128 characters.' });
+    }
+
+    const cleanToken = token.trim();
+    const now = Date.now();
+
+    if (isMongoConnected) {
+      // Look up user by matching token AND resetPasswordExpires > Date.now()
+      const user = await User.findOne({
+        resetPasswordToken: cleanToken,
+        resetPasswordExpires: { $gt: now }
+      });
+
+      if (!user) {
+        return res.status(400).json({ error: 'Token is invalid or has expired.' });
+      }
+
+      // Hash new password using existing bcrypt mechanism
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      user.password = hashedPassword;
+
+      // Critical Cleanup: clear token and expiration fields back to null
+      user.resetPasswordToken = null;
+      user.resetPasswordExpires = null;
+      await user.save();
+
+      return res.status(200).json({
+        success: true,
+        message: 'Password reset successfully. You may now log in.'
+      });
+    }
+
+    // In-memory fallback
+    const user = inMemory.users.find(u =>
+      u.resetPasswordToken === cleanToken &&
+      u.resetPasswordExpires &&
+      new Date(u.resetPasswordExpires).getTime() > now
+    );
+
+    if (!user) {
+      return res.status(400).json({ error: 'Token is invalid or has expired.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    // Critical Cleanup: clear token and expiration fields back to null
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password reset successfully. You may now log in.'
+    });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ error: 'Failed to reset password.' });
+  }
+}
+
+app.post('/api/auth/reset-password', handleResetPassword);
+app.post('/api/users/reset-password', handleResetPassword);
 
 // Dedicated endpoint to synchronize guest cart & wishlist into an existing user account
 app.post('/api/user/sync', async (req, res) => {
@@ -1244,6 +1559,11 @@ app.get('/', (req, res) => {
     return res.sendFile(path.join(rootDir, 'index.html'));
   }
   res.send('YourChoice backend is running.');
+});
+
+// Dedicated HTML route for password reset page
+app.get('/reset-password', (req, res) => {
+  res.sendFile(path.join(rootDir, 'reset-password.html'));
 });
 
 // Fallback error handler

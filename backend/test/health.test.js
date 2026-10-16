@@ -415,3 +415,130 @@ test('Input Boundary Validation & Rejection of Malformed Payloads', async () => 
   });
   assert.equal(shortMsgRes.status, 400);
 });
+
+test('Password Reset Workflow: Token generation, expiration, anti-enumeration & bcrypt execution', async () => {
+  const resetUser = `reset_user_${Date.now()}`;
+  const resetEmail = `${resetUser}@example.com`;
+  const initialPassword = 'InitialSecretPassword123!';
+  const newPassword = 'BrandNewPassword456!';
+
+  // 1. Register a test user
+  const regRes = await request(app).post('/api/users/register').send({
+    username: resetUser,
+    email: resetEmail,
+    password: initialPassword,
+    name: 'Reset Test User'
+  });
+  assert.equal(regRes.status, 201);
+
+  // 2. Request password reset with non-existent email:
+  // MUST return 200 generic success to prevent user enumeration
+  const nonExistentRes = await request(app).post('/api/auth/forgot-password').send({
+    email: 'nonexistent_account_9999@example.com'
+  });
+  assert.equal(nonExistentRes.status, 200);
+  assert.equal(nonExistentRes.body.success, true);
+  assert.equal(nonExistentRes.body.message, 'If that email exists, a reset link has been sent.');
+
+  // 3. Request password reset with invalid email format returns 400
+  const invalidEmailRes = await request(app).post('/api/auth/forgot-password').send({
+    email: 'not-an-email'
+  });
+  assert.equal(invalidEmailRes.status, 400);
+
+  // 4. Request password reset for existing registered user
+  const beforeRequestTime = Date.now();
+  const forgotRes = await request(app).post('/api/auth/forgot-password').send({
+    email: resetEmail
+  });
+  assert.equal(forgotRes.status, 200);
+  assert.equal(forgotRes.body.success, true);
+  assert.equal(forgotRes.body.message, 'If that email exists, a reset link has been sent.');
+
+  // 5. Inspect stored user record for crypto token and 15-minute expiration
+  const storedUser = app.inMemory.users.find(u => u.email === resetEmail);
+  assert.ok(storedUser, 'User must exist in memory store');
+  assert.ok(storedUser.resetPasswordToken, 'resetPasswordToken must be generated');
+  assert.equal(storedUser.resetPasswordToken.length, 64, 'Token must be 64-char hex string (32 bytes)');
+  assert.ok(storedUser.resetPasswordExpires, 'resetPasswordExpires date must be set');
+
+  const expiryTime = new Date(storedUser.resetPasswordExpires).getTime();
+  const fifteenMinutesMs = 15 * 60 * 1000;
+  // Expiration should be within 2 seconds of 15 minutes from request time
+  assert.ok(expiryTime >= beforeRequestTime + fifteenMinutesMs - 2000, 'Expiration must be at least 15 mins ahead');
+  assert.ok(expiryTime <= Date.now() + fifteenMinutesMs + 2000, 'Expiration must not exceed 15 mins ahead');
+
+  const validToken = storedUser.resetPasswordToken;
+
+  // 6. Verify token check endpoint
+  const verifyValid = await request(app).get(`/api/auth/verify-token?token=${validToken}`);
+  assert.equal(verifyValid.status, 200);
+  assert.equal(verifyValid.body.valid, true);
+
+  // 7. Attempt reset with non-existent token returns 400
+  const bogusResetRes = await request(app).post('/api/auth/reset-password').send({
+    token: 'bogus_token_1234567890abcdef1234567890abcdef',
+    newPassword: newPassword
+  });
+  assert.equal(bogusResetRes.status, 400);
+  assert.equal(bogusResetRes.body.error, 'Token is invalid or has expired.');
+
+  // 8. Attempt reset with expired token returns 400
+  storedUser.resetPasswordExpires = new Date(Date.now() - 5000); // 5 seconds in the past
+  const expiredResetRes = await request(app).post('/api/auth/reset-password').send({
+    token: validToken,
+    newPassword: newPassword
+  });
+  assert.equal(expiredResetRes.status, 400);
+  assert.equal(expiredResetRes.body.error, 'Token is invalid or has expired.');
+
+  // 9. Restore valid expiration to test successful reset
+  storedUser.resetPasswordExpires = new Date(Date.now() + fifteenMinutesMs);
+
+  // 10. Attempt reset with invalid/too-short password returns 400
+  const shortPassRes = await request(app).post('/api/auth/reset-password').send({
+    token: validToken,
+    newPassword: '123'
+  });
+  assert.equal(shortPassRes.status, 400);
+
+  // 11. Execute successful password reset
+  const successResetRes = await request(app).post('/api/auth/reset-password').send({
+    token: validToken,
+    newPassword: newPassword
+  });
+  assert.equal(successResetRes.status, 200);
+  assert.equal(successResetRes.body.success, true);
+  assert.equal(successResetRes.body.message, 'Password reset successfully. You may now log in.');
+
+  // 12. Critical Cleanup Verification: fields must be cleared back to null
+  assert.strictEqual(storedUser.resetPasswordToken, null, 'resetPasswordToken must be reset to null');
+  assert.strictEqual(storedUser.resetPasswordExpires, null, 'resetPasswordExpires must be reset to null');
+
+  // 13. Verify user's new password is a salted bcrypt hash
+  assert.match(storedUser.password, /^\$2[ab]\$\d+\$/, 'Updated password must be a salted bcrypt hash');
+
+  // 14. Old password must no longer work for login
+  const oldLoginRes = await request(app).post('/api/users/login').send({
+    username: resetUser,
+    password: initialPassword
+  });
+  assert.equal(oldLoginRes.status, 401);
+
+  // 15. New password works successfully for login
+  const newLoginRes = await request(app).post('/api/users/login').send({
+    username: resetUser,
+    password: newPassword
+  });
+  assert.equal(newLoginRes.status, 200);
+  assert.equal(newLoginRes.body.user.username, resetUser);
+
+  // 16. Single-use enforcement: Attempting to reuse the same token must fail
+  const reuseRes = await request(app).post('/api/auth/reset-password').send({
+    token: validToken,
+    newPassword: 'YetAnotherPassword789!'
+  });
+  assert.equal(reuseRes.status, 400);
+  assert.equal(reuseRes.body.error, 'Token is invalid or has expired.');
+});
+
