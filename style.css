@@ -489,13 +489,27 @@ header:nth-of-type(1) > div:nth-of-type(1) > button#mobile-menu-btn:nth-of-type(
 }
 
 /* Hero section - Grounded Deep Charcoal Authority Canvas */
+section#hero:nth-of-type(1),
 .hero {
   background-color: var(--color-surface-dark);
   color: var(--color-text-inverse);
   padding: 4.5rem 2rem;
   text-align: center;
-  border-bottom: 2px solid var(--color-accent);
+  border-bottom: 1px solid #27272a;
   position: relative;
+  box-shadow: 0 4px 16px -2px rgba(18, 18, 20, 0.12);
+}
+
+section#hero:nth-of-type(1)::after,
+.hero::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 5%, #3f3f46 25%, #52525b 50%, #3f3f46 75%, transparent 95%);
+  pointer-events: none;
 }
 
 .hero h1 {
@@ -713,12 +727,12 @@ footer {
 /* Mobile Accordion & Dense Stacking (<= 640px) */
 @media (max-width: 640px) {
   .footer {
-    padding: 2.25rem 1rem 1.25rem;
+    padding: 1.75rem 1rem 1rem;
   }
   .footer-segmented-grid {
     grid-template-columns: 1fr;
-    gap: 0.6rem;
-    margin-bottom: 1.75rem;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
   }
   .footer-col-brand {
     padding-bottom: 1rem;
@@ -1492,9 +1506,9 @@ footer#contact:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nt
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 0.65rem;
-    padding-top: 0.9rem;
-    margin-top: 1rem;
+    gap: 0.5rem;
+    padding-top: 0.75rem;
+    margin-top: 0.85rem;
   }
 
   footer#contact:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1),
@@ -1502,22 +1516,43 @@ footer#contact:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nt
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 0.35rem;
+    gap: 0.25rem;
     width: 100%;
   }
 
+  .footer-bottom-bar .copyright {
+    font-size: 0.76rem;
+    line-height: 1.3;
+  }
+
   .footer-legal-links {
+    display: inline-flex;
     justify-content: center;
-    gap: 0.35rem 0.5rem;
-    flex-wrap: wrap;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 0.25rem 0.4rem;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  .footer-legal-btn {
+    font-size: 0.76rem;
+    padding: 1px 3px;
+    white-space: nowrap;
+  }
+
+  .dot-sep {
+    font-size: 0.65rem;
+    margin: 0;
   }
 
   .footer-back-to-top-btn {
     width: auto;
     justify-content: center;
     min-height: unset;
-    padding: 0.35rem 0.85rem;
-    margin-top: 0.2rem;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.75rem;
+    margin-top: 0.15rem;
   }
 }
 
@@ -3063,9 +3098,11 @@ aside#mobile-nav-drawer .drawer-register-btn:focus-visible,
 
 
 /* Trending Products */
+section:nth-of-type(2),
 .trending-products {
   padding: 3.5rem 2rem;
   background-color: var(--color-canvas);
+  border-top: 1px solid var(--border-subtle);
   border-bottom: var(--border-subtle);
 }
 
@@ -3297,11 +3334,6 @@ section:nth-of-type(2) > h2:nth-of-type(1):hover .trending-flame-badge,
   line-height: 1.2;
 }
 
-/* Trending Products Carousel */
-.trending-products {
-  padding: 3rem 2rem;
-  background-color: #f8f9fa;
-}
 
 
 .carousel-container {
