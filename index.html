@@ -7,7 +7,7 @@
   <meta name="description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
   <meta property="og:title" content="YourChoice" />
   <meta property="og:description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
-  <link rel="stylesheet" href="style.css?v=v202610170010" />
+  <link rel="stylesheet" href="style.css?v=v202610171105" />
 </head>
 <body>
 
@@ -353,7 +353,7 @@
 <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <!-- Floating Cart Button -->
-<button id="floating-cart-btn" class="floating-cart-btn" onclick="toggleCartView()">
+<button id="floating-cart-btn" class="floating-cart-btn" type="button" aria-label="Open Shopping Cart" onclick="if(typeof openCartView==='function'){openCartView();}else if(typeof toggleCartView==='function'){toggleCartView();}">
   🛒
   <span class="cart-count" id="floating-cart-count">0</span>
 </button>
@@ -640,8 +640,8 @@
   </div>
 </div>
 
-  <script src="src/products.js?v=v202610170010"></script>
-  <script src="script.js?v=v202610170010"></script>
+  <script src="src/products.js?v=v202610171105"></script>
+  <script src="script.js?v=v202610171105"></script>
   <script>
     // Check user authentication status (unified navigation)
     function checkAuthStatus() {

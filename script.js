@@ -717,7 +717,8 @@ function setupCartEventListeners() {
   cartToggleLinks.forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
-      toggleCartView();
+      e.stopPropagation();
+      openCartView();
     });
   });
 
@@ -725,6 +726,7 @@ function setupCartEventListeners() {
   if (mobileCartTrigger) {
     mobileCartTrigger.addEventListener('click', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       openCartView();
     });
   }
@@ -742,7 +744,8 @@ function setupCartEventListeners() {
   if (floatingCartBtn) {
     floatingCartBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      toggleCartView();
+      e.stopPropagation();
+      openCartView();
     });
   }
 
