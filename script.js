@@ -355,12 +355,6 @@ function updateCartUI() {
     
     // Update button states
     updateButtonStates();
-    
-    // Hide the cart modal and overlay if the cart is empty
-    const cartEl = document.getElementById('cart');
-    const overlay = document.getElementById('cart-overlay');
-    if (cartEl) cartEl.classList.remove('show');
-    if (overlay) overlay.classList.remove('show');
 
     return; // exit early if empty
   }
@@ -658,35 +652,68 @@ function loadCartFromStorage() {
   }
 }
 
-function toggleCartView() {
+function openCartView() {
   const cartEl = document.getElementById('cart');
   const overlay = document.getElementById('cart-overlay');
   if (!cartEl || !overlay) return;
-  
-  if (cartEl.classList.contains('show')) {
-    // Closing cart
-    cartEl.classList.remove('show');
-    overlay.classList.remove('show');
-    if (lastFocusedElement) {
-      lastFocusedElement.focus();
-    }
-  } else {
-    // Opening cart
-    lastFocusedElement = document.activeElement;
-    cartEl.classList.add('show');
-    overlay.classList.add('show');
-    // Focus the first focusable element in the cart
-    const firstFocusable = cartEl.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    if (firstFocusable) {
-      firstFocusable.focus();
-    }
+
+  // Close the mobile drawer first if open
+  if (typeof closeMobileDrawer === 'function') {
+    closeMobileDrawer();
+  }
+
+  // Refresh cart UI and counter displays so items are always up-to-date
+  if (typeof updateCartUI === 'function') {
+    updateCartUI();
+  }
+  if (typeof updateFloatingCartCount === 'function') {
+    updateFloatingCartCount();
+  }
+
+  lastFocusedElement = document.activeElement;
+  cartEl.classList.add('show');
+  overlay.classList.add('show');
+
+  // Focus close button or first focusable element
+  const firstFocusable = cartEl.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  if (firstFocusable) {
+    firstFocusable.focus();
   }
 }
+
+function closeCartView() {
+  const cartEl = document.getElementById('cart');
+  const overlay = document.getElementById('cart-overlay');
+  if (!cartEl || !overlay) return;
+
+  cartEl.classList.remove('show');
+  overlay.classList.remove('show');
+  if (lastFocusedElement) {
+    try {
+      lastFocusedElement.focus();
+    } catch (_) {}
+  }
+}
+
+function toggleCartView() {
+  const cartEl = document.getElementById('cart');
+  if (cartEl && cartEl.classList.contains('show')) {
+    closeCartView();
+  } else {
+    openCartView();
+  }
+}
+
+// Expose on window for inline handlers & external modules
+window.openCartView = openCartView;
+window.closeCartView = closeCartView;
+window.toggleCartView = toggleCartView;
 
 let lastFocusedElement = null;
 
 function setupCartEventListeners() {
-  const cartToggleLinks = document.querySelectorAll('a[href="#"], a[href="#cart"], .nav-cart-link');
+  // Use specific selectors for cart toggle buttons, NEVER generic a[href="#"] which matches every dummy anchor!
+  const cartToggleLinks = document.querySelectorAll('#nav-cart-btn, .nav-cart-link, a[href="#cart"]');
   cartToggleLinks.forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
@@ -698,7 +725,7 @@ function setupCartEventListeners() {
   if (mobileCartTrigger) {
     mobileCartTrigger.addEventListener('click', (e) => {
       e.preventDefault();
-      toggleCartView();
+      openCartView();
     });
   }
 
@@ -706,7 +733,15 @@ function setupCartEventListeners() {
   if (drawerCartLink) {
     drawerCartLink.addEventListener('click', (e) => {
       e.preventDefault();
-      closeMobileDrawer();
+      e.stopPropagation();
+      openCartView();
+    });
+  }
+
+  const floatingCartBtn = document.getElementById('floating-cart-btn');
+  if (floatingCartBtn) {
+    floatingCartBtn.addEventListener('click', (e) => {
+      e.preventDefault();
       toggleCartView();
     });
   }
@@ -846,7 +881,14 @@ function setupMobileMenu() {
   }
 
   navLinks.forEach(link => {
-    if (!link.classList.contains('nav-cart-link') && !link.classList.contains('nav-btn-link')) {
+    if (
+      !link.classList.contains('nav-cart-link') &&
+      !link.classList.contains('nav-btn-link') &&
+      !link.classList.contains('drawer-cart-link') &&
+      link.id !== 'drawer-cart-link' &&
+      link.id !== 'drawer-wishlist-btn' &&
+      link.id !== 'drawer-orders-btn'
+    ) {
       link.addEventListener('click', closeMobileDrawer);
     }
   });

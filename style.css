@@ -2158,7 +2158,7 @@ aside#mobile-nav-drawer .drawer-register-btn:focus-visible,
   width: 480px;
   max-width: min(94vw, 480px);
   max-height: 88vh;
-  z-index: 1000;
+  z-index: 2100;
   display: none;
   border: 1px solid rgba(226, 232, 240, 0.9);
   box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.05);
@@ -2729,7 +2729,7 @@ aside#mobile-nav-drawer .drawer-register-btn:focus-visible,
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
   display: none;
-  z-index: 1000;
+  z-index: 2050;
 }
 
 .cart-overlay.show {
@@ -6264,7 +6264,11 @@ body {
     transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
     box-shadow: 0 -10px 35px rgba(0, 0, 0, 0.25) !important;
     padding: 12px 18px 24px !important;
-    z-index: 1001 !important;
+    z-index: 2100 !important;
+  }
+
+  .cart-overlay {
+    z-index: 2050 !important;
   }
 
   .cart-modal.show {
