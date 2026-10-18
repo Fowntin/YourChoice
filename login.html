@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610171527" />
+  <link rel="stylesheet" href="style.css?v=v202610180831" />
 </head>
 <body>
   <header class="navbar">
@@ -103,6 +103,32 @@
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
       const messageEl = document.getElementById('auth-message');
+      const submitBtn = e.target.querySelector('button[type="submit"]') || document.querySelector('.auth-btn');
+
+      if (!username || !password) {
+        messageEl.textContent = 'Please enter your username/email and password.';
+        messageEl.className = 'auth-message error';
+        return;
+      }
+
+      // Check online connectivity before attempting authentication
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        messageEl.textContent = 'You appear to be offline. Please check your internet connection and try again.';
+        messageEl.className = 'auth-message error';
+        return;
+      }
+
+      // Clean up any obsolete local user fallbacks
+      try {
+        localStorage.removeItem('localUsers');
+      } catch (err) {}
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Signing In...';
+      }
+      messageEl.textContent = '';
+      messageEl.className = 'auth-message';
       
       // Collect existing guest cart items (handles envelope and array)
       let guestCart = [];
@@ -130,15 +156,11 @@
 
       const hadGuestItems = guestCart.length > 0 || guestWishlist.length > 0;
 
-      function handleLocalAuthSuccess(userData, syncNote, token) {
+      function handleAuthSuccess(userData, syncNote, token) {
         localStorage.setItem('user', JSON.stringify(userData));
         localStorage.setItem('userLoggedIn', 'true');
         if (token) {
           localStorage.setItem('authToken', token);
-        } else {
-          // Fallback offline session token for static host resilience
-          const fallbackToken = 'local_tok_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
-          localStorage.setItem('authToken', fallbackToken);
         }
 
         const mergedCart = (userData && Array.isArray(userData.cart)) ? userData.cart : guestCart;
@@ -176,58 +198,34 @@
         
         if (response.ok) {
           const data = await response.json();
-          handleLocalAuthSuccess(data.user, hadGuestItems ? 'Welcome back! Your saved items have been synced to your account.' : null, data.token);
+          handleAuthSuccess(data.user, hadGuestItems ? 'Welcome back! Your saved items have been synced to your account.' : null, data.token);
         } else if (response.status === 404 || response.status === 405) {
-          // GitHub Pages static host fallback
-          let localUsers = [];
-          try {
-            localUsers = JSON.parse(localStorage.getItem('localUsers') || '[]');
-          } catch (e) {
-            localUsers = [];
-          }
-          const matched = localUsers.find(u => (u.username === username || u.email === username) && u.password === password);
-          if (matched) {
-            handleLocalAuthSuccess(matched, 'Signed in (Static host mode). Orders and cart will be saved locally.');
-          } else {
-            const demoUser = {
-              id: 'local_' + username.toLowerCase().replace(/[^a-z0-9]/g, ''),
-              username: username,
-              email: username.includes('@') ? username : `${username}@example.com`,
-              name: username,
-              cart: guestCart,
-              wishlist: guestWishlist
-            };
-            handleLocalAuthSuccess(demoUser, 'Signed in (Static host mode). Orders and cart will be saved locally.');
+          messageEl.textContent = 'Authentication service is unavailable. Please verify the backend server is running and try again.';
+          messageEl.className = 'auth-message error';
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Login';
           }
         } else {
           const data = await response.json().catch(() => ({}));
-          messageEl.textContent = data.error || 'Login failed';
+          messageEl.textContent = data.error || (response.status === 401 ? 'Invalid username or password.' : 'Login failed. Please check your credentials and try again.');
           messageEl.className = 'auth-message error';
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Login';
+          }
         }
       } catch (error) {
-        // Network failure / offline fallback
-        let localUsers = [];
-        try {
-          localUsers = JSON.parse(localStorage.getItem('localUsers') || '[]');
-        } catch (e) {
-          localUsers = [];
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          messageEl.textContent = 'You appear to be offline. Please reconnect to the internet and try again.';
+        } else {
+          messageEl.textContent = 'Unable to connect to the authentication server. Please check your connection or verify the server is running, then try again.';
         }
-        const matched = localUsers.find(u => (u.username === username || u.email === username) && u.password === password);
-        if (matched || window.location.hostname.endsWith('github.io')) {
-          const activeUser = matched || {
-            id: 'local_' + username.toLowerCase().replace(/[^a-z0-9]/g, ''),
-            username: username,
-            email: username.includes('@') ? username : `${username}@example.com`,
-            name: username,
-            cart: guestCart,
-            wishlist: guestWishlist
-          };
-          handleLocalAuthSuccess(activeUser, 'Signed in (Offline mode). Your cart and orders are saved locally.');
-          return;
-        }
-
-        messageEl.textContent = 'Network error. Please try again.';
         messageEl.className = 'auth-message error';
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Login';
+        }
       }
     });
 

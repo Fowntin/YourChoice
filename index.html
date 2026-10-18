@@ -7,7 +7,7 @@
   <meta name="description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
   <meta property="og:title" content="YourChoice" />
   <meta property="og:description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
-  <link rel="stylesheet" href="style.css?v=v202610171105" />
+  <link rel="stylesheet" href="style.css?v=v202610180831" />
 </head>
 <body>
 
@@ -640,8 +640,8 @@
   </div>
 </div>
 
-  <script src="src/products.js?v=v202610171105"></script>
-  <script src="script.js?v=v202610171105"></script>
+  <script src="src/products.js?v=v202610180831"></script>
+  <script src="script.js?v=v202610180831"></script>
   <script>
     // Check user authentication status (unified navigation)
     function checkAuthStatus() {
@@ -685,6 +685,8 @@
       if (e) e.preventDefault();
       localStorage.removeItem('userLoggedIn');
       localStorage.removeItem('user');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('localUsers');
       checkAuthStatus();
       window.location.reload();
     }

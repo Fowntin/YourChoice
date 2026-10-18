@@ -471,7 +471,6 @@ function isStaticHost() {
 let userSyncDebounceTimer = null;
 function syncActiveUserCartAndWishlistDebounced() {
   if (typeof window === 'undefined') return;
-  if (isStaticHost()) return; // Purely local in static environments
   const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
   if (!userLoggedIn) return;
 
@@ -509,7 +508,6 @@ function syncActiveUserCartAndWishlistDebounced() {
 // Background sync to fetch remote account cart & wishlist for logged-in user
 async function syncActiveUserFromBackend() {
   if (typeof window === 'undefined') return;
-  if (isStaticHost()) return; // GitHub Pages lacks Node backend; bypass network call
   const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
   if (!userLoggedIn) return;
 
@@ -1575,6 +1573,12 @@ window.addEventListener('DOMContentLoaded', () => {
   loadCartFromStorage();
   updateCartUI();
   updateFloatingCartCount();
+
+  // Clean up legacy offline/static host fallbacks
+  try {
+    localStorage.removeItem('localUsers');
+    localStorage.removeItem('localUserOrders');
+  } catch (e) {}
 
   // Background sync for logged-in user
   syncActiveUserFromBackend();
