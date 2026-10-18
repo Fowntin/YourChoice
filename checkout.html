@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Checkout | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610161148" />
+  <link rel="stylesheet" href="style.css?v=v202610180758" />
 </head>
 <body>
   <header class="navbar">
@@ -161,7 +161,7 @@
     </div>
   </div>
 
-  <script src="script.js?v=v202610161038"></script>
+  <script src="script.js?v=v202610180758"></script>
   <script>
     // Escape helper
     function escapeHtml(str) {
@@ -300,114 +300,90 @@
       submitBtn.disabled = true;
       submitBtn.textContent = 'Processing Order...';
 
-      // Check if running on a static host (e.g. GitHub Pages) where backend POST is unavailable
-      function isStaticHostEnvironment() {
-        if (typeof isStaticHost === 'function') {
-          try { return isStaticHost(); } catch (e) {}
-        }
-        if (typeof window === 'undefined') return false;
-        const host = window.location.hostname || '';
-        return host.endsWith('github.io') || window.location.protocol === 'file:';
+      // Validate network connectivity before dispatching order
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        showToast('Unable to connect to the order service. Please check your internet connection or try again shortly.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Place Order';
+        return;
       }
 
-      function saveOrderLocally(data) {
-        const localId = 'GH-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
-        const record = {
-          _id: localId,
-          id: localId,
-          ...data,
-          status: 'pending',
-          createdAt: new Date().toISOString()
-        };
-        try {
-          const list = JSON.parse(localStorage.getItem('localUserOrders') || '[]');
-          list.unshift(record);
-          localStorage.setItem('localUserOrders', JSON.stringify(list));
-        } catch (e) {
-          localStorage.setItem('localUserOrders', JSON.stringify([record]));
-        }
-        return record;
-      }
+      // Purge any legacy local storage fallback orders to enforce backend consistency
+      try {
+        localStorage.removeItem('localUserOrders');
+      } catch (e) {}
 
-      let orderSuccessful = false;
-      let placedOrderId = null;
+      try {
+        const response = await fetch('/api/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify(orderData)
+        });
 
-      // On static hosts (such as GitHub Pages), save locally upfront without firing POST to eliminate 405 Method Not Allowed errors
-      if (isStaticHostEnvironment()) {
-        const localRecord = saveOrderLocally(orderData);
-        orderSuccessful = true;
-        placedOrderId = localRecord._id;
-      } else {
-        try {
-          const response = await fetch('/api/orders', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify(orderData)
-          });
+        if (response.ok) {
+          const data = await response.json();
+          // Persist customer contact details for future frictionless checkouts
+          if (orderData.phone) localStorage.setItem('savedCustomerPhone', orderData.phone);
+          if (orderData.address) localStorage.setItem('savedCustomerAddress', orderData.address);
+          if (data && data.orderId) sessionStorage.setItem('justPlacedOrderId', data.orderId);
 
-          if (response.ok) {
-            const data = await response.json();
-            orderSuccessful = true;
-            placedOrderId = data.orderId;
-          } else if (response.status === 401) {
-            sessionStorage.setItem('redirectAfterAuth', 'checkout.html');
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('userLoggedIn');
-            showToast('Please log in to complete your order.', 'warning');
-            setTimeout(() => {
-              window.location.href = 'login.html?redirect=checkout.html';
-            }, 1200);
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Place Order';
-            return;
-          } else if (response.status === 404 || response.status === 405) {
-            // Static host or unmapped backend route fallback
-            const localRecord = saveOrderLocally(orderData);
-            orderSuccessful = true;
-            placedOrderId = localRecord._id;
-          } else {
-            const data = await response.json().catch(() => ({}));
-            showToast(data.error || 'Failed to place order', 'error');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Place Order';
-            return;
+          showToast('Order placed successfully! Redirecting...', 'success');
+          // Only clear active cart from storage upon authoritative server confirmation
+          localStorage.removeItem('cart');
+
+          // If logged in, clear account cart on server
+          if (user.id || user.email) {
+            try {
+              fetch('/api/user/cart-wishlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, email: user.email, cart: [] })
+              }).catch(() => {});
+            } catch (err) {
+              // Non-blocking background sync
+            }
           }
-        } catch (error) {
-          console.warn('Backend unavailable, completing order in local storage mode:', error);
-          const localRecord = saveOrderLocally(orderData);
-          orderSuccessful = true;
-          placedOrderId = localRecord._id;
-        }
-      }
 
-      if (orderSuccessful) {
-        // Persist customer contact details for future frictionless checkouts
-        if (orderData.phone) localStorage.setItem('savedCustomerPhone', orderData.phone);
-        if (orderData.address) localStorage.setItem('savedCustomerAddress', orderData.address);
-        if (placedOrderId) sessionStorage.setItem('justPlacedOrderId', placedOrderId);
-
-        showToast('Order placed successfully! Redirecting...', 'success');
-        localStorage.removeItem('cart');
-
-        // If logged in and running on live server, clear account cart on server
-        if ((user.id || user.email) && !isStaticHostEnvironment()) {
-          try {
-            fetch('/api/user/cart-wishlist', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId: user.id, email: user.email, cart: [] })
-            });
-          } catch (err) {
-            // Non-blocking background sync
-          }
+          setTimeout(() => {
+            window.location.href = 'index.html';
+          }, 1500);
+          return;
         }
 
-        setTimeout(() => {
-          window.location.href = 'index.html';
-        }, 1500);
+        if (response.status === 401) {
+          sessionStorage.setItem('redirectAfterAuth', 'checkout.html');
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('userLoggedIn');
+          showToast('Please log in to complete your order.', 'warning');
+          setTimeout(() => {
+            window.location.href = 'login.html?redirect=checkout.html';
+          }, 1200);
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Place Order';
+          return;
+        }
+
+        if (response.status === 404 || response.status === 405) {
+          // Static host or unmapped backend service — treat with realistic network failure feedback
+          showToast('Unable to connect to the order service. Please check your internet connection or try again shortly.', 'error');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Place Order';
+          return;
+        }
+
+        const data = await response.json().catch(() => ({}));
+        showToast(data.error || 'Failed to place order. Please try again.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Place Order';
+      } catch (error) {
+        console.error('Order submission network error:', error);
+        // Retain cart and form state for immediate user retry
+        showToast('Unable to connect to the order service. Please check your internet connection or try again shortly.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Place Order';
       }
     });
 

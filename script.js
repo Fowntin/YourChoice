@@ -1870,49 +1870,31 @@ async function loadUserOrders() {
     return [];
   }
 
-  let localOrders = [];
+  // Purge any legacy localUserOrders cache to enforce server consistency
   try {
-    const raw = JSON.parse(localStorage.getItem('localUserOrders') || '[]');
-    if (Array.isArray(raw)) {
-      localOrders = raw.filter(o => !o.userId || o.userId === user.id || o.email === user.email);
-    }
-  } catch (e) {
-    localOrders = [];
-  }
+    localStorage.removeItem('localUserOrders');
+  } catch (e) {}
 
   let remoteOrders = [];
-  if (!isStaticHost()) {
-    try {
-      const params = new URLSearchParams();
-      if (user.id) params.set('userId', user.id);
-      if (user.email) params.set('email', user.email);
+  try {
+    const params = new URLSearchParams();
+    if (user.id) params.set('userId', user.id);
+    if (user.email) params.set('email', user.email);
 
-      const response = await fetch(`/api/user/orders?${params.toString()}`);
-      if (response.ok) {
-        const orders = await response.json();
-        if (Array.isArray(orders)) {
-          remoteOrders = orders;
-        }
+    const response = await fetch(`/api/user/orders?${params.toString()}`);
+    if (response.ok) {
+      const orders = await response.json();
+      if (Array.isArray(orders)) {
+        remoteOrders = orders;
       }
-    } catch (err) {
-      console.warn('Could not load remote user orders:', err);
+    } else {
+      console.warn('Backend returned non-OK status when loading user orders:', response.status);
     }
+  } catch (err) {
+    console.warn('Could not load remote user orders:', err);
   }
 
-  // Deduplicate and combine remote & local orders
-  const combinedMap = new Map();
-  remoteOrders.forEach(o => {
-    const key = o._id || o.id;
-    if (key) combinedMap.set(key, o);
-  });
-  localOrders.forEach(o => {
-    const key = o._id || o.id;
-    if (key && !combinedMap.has(key)) {
-      combinedMap.set(key, o);
-    }
-  });
-
-  const allOrders = Array.from(combinedMap.values());
+  const allOrders = remoteOrders;
   allOrders.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
   const count = allOrders.length;
