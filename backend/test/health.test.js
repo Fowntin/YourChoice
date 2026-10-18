@@ -136,15 +136,18 @@ test('Customer Order Placement & User Orders Retrieval', async () => {
 
   // 5. Test with specific timestamp string userId format (e.g., usr_1791852530600)
   const timestampUserId = 'usr_1791852530600';
-  const customOrderRes = await request(app).post('/api/orders').send({
-    name: 'Cast Test User',
-    email: 'cast_test@example.com',
-    phone: '+233 50 111 2233',
-    address: 'Cast Test Address',
-    items: [{ id: 'p2', name: 'Smart Watch', price: 150, quantity: 1 }],
-    total: 150,
-    userId: timestampUserId
-  });
+  const customOrderRes = await request(app)
+    .post('/api/orders')
+    .set('Authorization', `Bearer ${customerToken}`)
+    .send({
+      name: 'Cast Test User',
+      email: 'cast_test@example.com',
+      phone: '+233 50 111 2233',
+      address: 'Cast Test Address',
+      items: [{ id: 'p2', name: 'Smart Watch', price: 150, quantity: 1 }],
+      total: 150,
+      userId: timestampUserId
+    });
   assert.equal(customOrderRes.status, 201);
 
   const fetchCastRes = await request(app).get(`/api/user/orders?userId=${timestampUserId}&email=cast_test@example.com`);

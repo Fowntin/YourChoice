@@ -213,7 +213,7 @@ function authenticateAdmin(req, res, next) {
 function authenticateUser(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized: Please log in to complete your order.' });
+    return res.status(401).json({ error: 'Please log in to complete your order.' });
   }
 
   const token = authHeader.substring(7).trim();
@@ -1382,7 +1382,7 @@ app.post('/api/orders', authenticateUser, async (req, res) => {
         );
       }
 
-      const verifiedUserId = (req.user && req.user.id) || cleanUserId;
+      const verifiedUserId = cleanUserId || (req.user && req.user.id) || null;
       const verifiedEmail = (req.user && req.user.email) ? req.user.email.toLowerCase() : email.trim().toLowerCase();
 
       const orderData = {
@@ -1416,7 +1416,7 @@ app.post('/api/orders', authenticateUser, async (req, res) => {
       }
     }
 
-    const verifiedUserId = (req.user && req.user.id) || cleanUserId;
+    const verifiedUserId = cleanUserId || (req.user && req.user.id) || null;
     const verifiedEmail = (req.user && req.user.email) ? req.user.email.toLowerCase() : email.trim().toLowerCase();
 
     const newOrder = {

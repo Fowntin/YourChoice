@@ -193,6 +193,21 @@
           badgeEl.innerHTML = `<span>✨ Signed in as <strong>${escapeHtml(user.name || user.username || 'Member')}</strong> — saved details loaded</span>`;
         }
       }
+
+      // Restore any pending form data preserved before login redirect
+      try {
+        const pendingRaw = sessionStorage.getItem('pendingCheckoutForm');
+        if (pendingRaw) {
+          const pending = JSON.parse(pendingRaw);
+          if (pending.name && nameInput && !nameInput.value) nameInput.value = pending.name;
+          if (pending.email && emailInput && !emailInput.value) emailInput.value = pending.email;
+          if (pending.phone && phoneInput && !phoneInput.value) phoneInput.value = pending.phone;
+          if (pending.address && addressInput && !addressInput.value) addressInput.value = pending.address;
+          sessionStorage.removeItem('pendingCheckoutForm');
+        }
+      } catch (err) {
+        // Safe fallback
+      }
     }
 
     // Safely extract cart items from either the 14-day rolling envelope or legacy array
@@ -245,6 +260,27 @@
 
       const formData = new FormData(e.target);
       const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
+      const authToken = localStorage.getItem('authToken');
+
+      // Check if user is authenticated before sending order to server
+      if (!userLoggedIn || !authToken) {
+        // Preserve customer form input to resume frictionless checkout after auth
+        const pendingData = {
+          name: formData.get('name').trim(),
+          email: formData.get('email').trim(),
+          phone: formData.get('phone').trim(),
+          address: formData.get('address').trim()
+        };
+        sessionStorage.setItem('pendingCheckoutForm', JSON.stringify(pendingData));
+        sessionStorage.setItem('redirectAfterAuth', 'checkout.html');
+
+        showToast('Please log in to complete your order. Redirecting...', 'warning');
+        setTimeout(() => {
+          window.location.href = 'login.html?redirect=checkout.html';
+        }, 1200);
+        return;
+      }
       
       const orderData = {
         name: formData.get('name').trim(),
@@ -255,7 +291,7 @@
         total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
       };
       
-      // Associate order with customer if logged in
+      // Associate order with customer
       if (user.id) {
         orderData.userId = user.id;
       }
@@ -307,6 +343,7 @@
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
             },
             body: JSON.stringify(orderData)
           });
@@ -315,6 +352,17 @@
             const data = await response.json();
             orderSuccessful = true;
             placedOrderId = data.orderId;
+          } else if (response.status === 401) {
+            sessionStorage.setItem('redirectAfterAuth', 'checkout.html');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userLoggedIn');
+            showToast('Please log in to complete your order.', 'warning');
+            setTimeout(() => {
+              window.location.href = 'login.html?redirect=checkout.html';
+            }, 1200);
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Place Order';
+            return;
           } else if (response.status === 404 || response.status === 405) {
             // Static host or unmapped backend route fallback
             const localRecord = saveOrderLocally(orderData);

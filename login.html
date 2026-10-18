@@ -81,6 +81,22 @@
   </div>
 
   <script>
+    // Detect redirect parameter or pending checkout intent
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectParam = urlParams.get('redirect');
+    if (redirectParam) {
+      sessionStorage.setItem('redirectAfterAuth', redirectParam);
+    }
+    const currentRedirect = sessionStorage.getItem('redirectAfterAuth') || redirectParam;
+    if (currentRedirect && currentRedirect.includes('checkout')) {
+      const banner = document.getElementById('auth-message');
+      if (banner) {
+        banner.textContent = 'Please log in to complete your checkout order.';
+        banner.className = 'auth-message info';
+        banner.style.display = 'block';
+      }
+    }
+
     document.getElementById('login-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       
