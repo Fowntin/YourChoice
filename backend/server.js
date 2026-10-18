@@ -32,6 +32,9 @@ try {
 dotenv.config({ path: path.resolve(__dirname, '.env'), override: true });
 dotenv.config({ path: path.resolve(__dirname, '..', '.env'), override: true });
 
+// Import Ghana validation & localization utility
+const GhanaValidation = require(path.resolve(__dirname, '../ghana-validation.js'));
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const rootDir = path.join(__dirname, '..');
@@ -105,6 +108,11 @@ const orderSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true },
   phone: { type: String, required: true },
+  phoneNetwork: { type: String },
+  deliveryRegion: { type: String },
+  deliveryTown: { type: String },
+  deliveryLandmark: { type: String },
+  deliveryGps: { type: String },
   address: { type: String, required: true },
   items: [
     {
@@ -137,6 +145,11 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   name: { type: String, required: true },
   phone: { type: String },
+  phoneNetwork: { type: String },
+  deliveryRegion: { type: String },
+  deliveryTown: { type: String },
+  deliveryLandmark: { type: String },
+  deliveryGps: { type: String },
   address: { type: String },
   cart: { type: Array, default: [] },
   wishlist: { type: Array, default: [] },
@@ -405,11 +418,11 @@ function isValidEmail(email) {
   return trimmed.length <= 254 && EMAIL_REGEX.test(trimmed);
 }
 
-// Safe phone number validator (allows Ghana and international formats)
+// Safe phone number validator (validates Ghana NCA telecom prefixes & international formats)
 function isValidPhone(phone) {
   if (typeof phone !== 'string') return false;
-  const trimmed = phone.trim();
-  return trimmed.length >= 7 && trimmed.length <= 25 && /^[+]?[\d\s\-()]{7,25}$/.test(trimmed);
+  const result = GhanaValidation.parseGhanaPhone(phone);
+  return result.isValid;
 }
 
 // Escapes special regex characters before passing into MongoDB $regex queries to prevent ReDoS / injection
@@ -512,7 +525,20 @@ function mergeWishlists(existingWishlist = [], incomingWishlist = []) {
 // User registration endpoint (supports optional guest cart & wishlist seed)
 app.post('/api/users/register', async (req, res) => {
   try {
-    const { username, email, password, name, phone, address, guestCart, guestWishlist } = req.body || {};
+    const {
+      username,
+      email,
+      password,
+      name,
+      phone,
+      address,
+      deliveryRegion,
+      deliveryTown,
+      deliveryLandmark,
+      deliveryGps,
+      guestCart,
+      guestWishlist
+    } = req.body || {};
 
     // Boundary Validation
     if (!isValidString(username, 3, 40)) {
@@ -527,18 +553,48 @@ app.post('/api/users/register', async (req, res) => {
     if (!isValidString(name, 2, 80)) {
       return res.status(400).json({ error: 'Full name must be between 2 and 80 characters.' });
     }
-    if (phone && !isValidPhone(phone)) {
-      return res.status(400).json({ error: 'Please provide a valid phone number.' });
+
+    let parsedPhoneData = null;
+    if (phone) {
+      parsedPhoneData = GhanaValidation.parseGhanaPhone(phone);
+      if (!parsedPhoneData.isValid) {
+        return res.status(400).json({ error: parsedPhoneData.error || 'Please provide a valid phone number.' });
+      }
     }
-    if (address && !isValidString(address, 3, 200)) {
+
+    let cleanRegion = deliveryRegion ? String(deliveryRegion).trim() : '';
+    let cleanTown = deliveryTown ? String(deliveryTown).trim() : '';
+    let cleanLandmark = deliveryLandmark ? String(deliveryLandmark).trim() : '';
+    let cleanGps = deliveryGps ? String(deliveryGps).trim() : '';
+    let cleanAddress = address ? String(address).trim() : '';
+
+    if (cleanRegion || cleanTown || cleanLandmark) {
+      const addrValidation = GhanaValidation.validateGhanaAddress({
+        region: cleanRegion,
+        town: cleanTown,
+        landmark: cleanLandmark,
+        gps: cleanGps
+      });
+      if (!addrValidation.isValid) {
+        const firstErr = Object.values(addrValidation.errors)[0];
+        return res.status(400).json({ error: firstErr || 'Invalid delivery address details.' });
+      }
+      cleanRegion = addrValidation.values.region;
+      cleanTown = addrValidation.values.town;
+      cleanLandmark = addrValidation.values.landmark;
+      cleanGps = addrValidation.values.gps;
+      if (!cleanAddress) {
+        cleanAddress = addrValidation.values.formattedAddress;
+      }
+    } else if (cleanAddress && !isValidString(cleanAddress, 3, 250)) {
       return res.status(400).json({ error: 'Delivery address must be under 200 characters.' });
     }
 
     const cleanUsername = username.trim();
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = name.trim();
-    const cleanPhone = phone ? phone.trim() : '';
-    const cleanAddress = address ? address.trim() : '';
+    const cleanPhone = parsedPhoneData ? (parsedPhoneData.localFormat || phone.trim()) : (phone ? phone.trim() : '');
+    const phoneNetwork = parsedPhoneData ? parsedPhoneData.network : null;
 
     // Salted bcrypt password hash before storage (OWASP best practice)
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -562,6 +618,11 @@ app.post('/api/users/register', async (req, res) => {
         password: hashedPassword,
         name: cleanName,
         phone: cleanPhone,
+        phoneNetwork: phoneNetwork,
+        deliveryRegion: cleanRegion,
+        deliveryTown: cleanTown,
+        deliveryLandmark: cleanLandmark,
+        deliveryGps: cleanGps,
         address: cleanAddress,
         cart: initialCart,
         wishlist: initialWishlist
@@ -581,6 +642,11 @@ app.post('/api/users/register', async (req, res) => {
           email: user.email,
           name: user.name,
           phone: user.phone,
+          phoneNetwork: user.phoneNetwork,
+          deliveryRegion: user.deliveryRegion,
+          deliveryTown: user.deliveryTown,
+          deliveryLandmark: user.deliveryLandmark,
+          deliveryGps: user.deliveryGps,
           address: user.address,
           cart: user.cart || [],
           wishlist: user.wishlist || []
@@ -603,6 +669,11 @@ app.post('/api/users/register', async (req, res) => {
       password: hashedPassword,
       name: cleanName,
       phone: cleanPhone,
+      phoneNetwork: phoneNetwork,
+      deliveryRegion: cleanRegion,
+      deliveryTown: cleanTown,
+      deliveryLandmark: cleanLandmark,
+      deliveryGps: cleanGps,
       address: cleanAddress,
       cart: initialCart,
       wishlist: initialWishlist,
@@ -625,6 +696,11 @@ app.post('/api/users/register', async (req, res) => {
         email: newUser.email,
         name: newUser.name,
         phone: newUser.phone,
+        phoneNetwork: newUser.phoneNetwork,
+        deliveryRegion: newUser.deliveryRegion,
+        deliveryTown: newUser.deliveryTown,
+        deliveryLandmark: newUser.deliveryLandmark,
+        deliveryGps: newUser.deliveryGps,
         address: newUser.address,
         cart: newUser.cart,
         wishlist: newUser.wishlist
@@ -694,6 +770,11 @@ app.post('/api/users/login', async (req, res) => {
           email: user.email,
           name: user.name,
           phone: user.phone,
+          phoneNetwork: user.phoneNetwork || null,
+          deliveryRegion: user.deliveryRegion || '',
+          deliveryTown: user.deliveryTown || '',
+          deliveryLandmark: user.deliveryLandmark || '',
+          deliveryGps: user.deliveryGps || '',
           address: user.address,
           cart: user.cart || [],
           wishlist: user.wishlist || []
@@ -744,6 +825,11 @@ app.post('/api/users/login', async (req, res) => {
         email: user.email,
         name: user.name,
         phone: user.phone,
+        phoneNetwork: user.phoneNetwork || null,
+        deliveryRegion: user.deliveryRegion || '',
+        deliveryTown: user.deliveryTown || '',
+        deliveryLandmark: user.deliveryLandmark || '',
+        deliveryGps: user.deliveryGps || '',
         address: user.address,
         cart: user.cart || [],
         wishlist: user.wishlist || []
@@ -1313,10 +1399,22 @@ app.get('/api/user/orders', async (req, res) => {
   }
 });
 
-// Place order endpoint with full boundary validation and mandatory customer authentication
+// Place order endpoint with full boundary validation, Ghana localization and mandatory customer authentication
 app.post('/api/orders', authenticateUser, async (req, res) => {
   try {
-    const { name, email, phone, address, items, total, userId } = req.body || {};
+    const {
+      name,
+      email,
+      phone,
+      address,
+      deliveryRegion,
+      deliveryTown,
+      deliveryLandmark,
+      deliveryGps,
+      items,
+      total,
+      userId
+    } = req.body || {};
 
     if (!isValidString(name, 2, 80)) {
       return res.status(400).json({ error: 'Customer name is required (2-80 characters).' });
@@ -1324,10 +1422,37 @@ app.post('/api/orders', authenticateUser, async (req, res) => {
     if (!isValidEmail(email)) {
       return res.status(400).json({ error: 'Please provide a valid email address.' });
     }
-    if (!isValidPhone(phone)) {
-      return res.status(400).json({ error: 'Please provide a valid phone number.' });
+
+    const parsedPhoneData = GhanaValidation.parseGhanaPhone(phone);
+    if (!parsedPhoneData.isValid) {
+      return res.status(400).json({ error: parsedPhoneData.error || 'Please provide a valid phone number.' });
     }
-    if (!isValidString(address, 5, 250)) {
+
+    let cleanRegion = deliveryRegion ? String(deliveryRegion).trim() : '';
+    let cleanTown = deliveryTown ? String(deliveryTown).trim() : '';
+    let cleanLandmark = deliveryLandmark ? String(deliveryLandmark).trim() : '';
+    let cleanGps = deliveryGps ? String(deliveryGps).trim() : '';
+    let cleanAddress = address ? String(address).trim() : '';
+
+    if (cleanRegion || cleanTown || cleanLandmark) {
+      const addrValidation = GhanaValidation.validateGhanaAddress({
+        region: cleanRegion,
+        town: cleanTown,
+        landmark: cleanLandmark,
+        gps: cleanGps
+      });
+      if (!addrValidation.isValid) {
+        const firstErr = Object.values(addrValidation.errors)[0];
+        return res.status(400).json({ error: firstErr || 'Invalid delivery address details.' });
+      }
+      cleanRegion = addrValidation.values.region;
+      cleanTown = addrValidation.values.town;
+      cleanLandmark = addrValidation.values.landmark;
+      cleanGps = addrValidation.values.gps;
+      if (!cleanAddress) {
+        cleanAddress = addrValidation.values.formattedAddress;
+      }
+    } else if (!isValidString(cleanAddress, 5, 250)) {
       return res.status(400).json({ error: 'Delivery address is required (5-250 characters).' });
     }
 
@@ -1347,6 +1472,8 @@ app.post('/api/orders', authenticateUser, async (req, res) => {
       : Math.round(submittedTotal * 100) / 100;
 
     const cleanUserId = (typeof userId === 'string' && userId.trim()) ? userId.trim().substring(0, 60) : null;
+    const cleanPhone = parsedPhoneData.localFormat || phone.trim();
+    const phoneNetwork = parsedPhoneData.network;
 
     // ========================================
     // 4. INVENTORY VALIDATION CHECK (DATABASE & IN-MEMORY)
@@ -1388,8 +1515,13 @@ app.post('/api/orders', authenticateUser, async (req, res) => {
       const orderData = {
         name: name.trim(),
         email: verifiedEmail,
-        phone: phone.trim(),
-        address: address.trim(),
+        phone: cleanPhone,
+        phoneNetwork: phoneNetwork,
+        deliveryRegion: cleanRegion,
+        deliveryTown: cleanTown,
+        deliveryLandmark: cleanLandmark,
+        deliveryGps: cleanGps,
+        address: cleanAddress,
         items: itemsValidation.items,
         total: orderTotal
       };
@@ -1423,8 +1555,13 @@ app.post('/api/orders', authenticateUser, async (req, res) => {
       _id: 'ord_' + Math.random().toString(36).substring(2, 9),
       name: name.trim(),
       email: verifiedEmail,
-      phone: phone.trim(),
-      address: address.trim(),
+      phone: cleanPhone,
+      phoneNetwork: phoneNetwork,
+      deliveryRegion: cleanRegion,
+      deliveryTown: cleanTown,
+      deliveryLandmark: cleanLandmark,
+      deliveryGps: cleanGps,
+      address: cleanAddress,
       items: itemsValidation.items,
       total: orderTotal,
       status: 'Pending',
@@ -1440,6 +1577,191 @@ app.post('/api/orders', authenticateUser, async (req, res) => {
   } catch (err) {
     console.error('Order save error:', err);
     res.status(500).json({ error: 'Failed to place order.' });
+  }
+});
+
+// ========================================================
+// USER PROFILE & DELIVERY SETTINGS ENDPOINTS
+// ========================================================
+
+// GET /api/user/profile - Fetch authenticated user's contact & delivery information
+app.get('/api/user/profile', authenticateUser, async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    const userEmail = req.user && req.user.email;
+
+    if (isMongoConnected) {
+      const user = await User.findOne({
+        $or: [
+          { _id: mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : null },
+          { email: userEmail ? userEmail.toLowerCase() : null }
+        ].filter(Boolean)
+      });
+      if (!user) {
+        return res.status(404).json({ error: 'User profile not found.' });
+      }
+      return res.json({
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        name: user.name,
+        phone: user.phone || '',
+        phoneNetwork: user.phoneNetwork || null,
+        deliveryRegion: user.deliveryRegion || '',
+        deliveryTown: user.deliveryTown || '',
+        deliveryLandmark: user.deliveryLandmark || '',
+        deliveryGps: user.deliveryGps || '',
+        address: user.address || ''
+      });
+    }
+
+    // In-memory fallback
+    const user = inMemory.users.find(u => 
+      (userId && String(u.id) === String(userId)) || 
+      (userEmail && u.email && u.email.toLowerCase() === userEmail.toLowerCase())
+    );
+    if (!user) {
+      return res.status(404).json({ error: 'User profile not found.' });
+    }
+    return res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      name: user.name,
+      phone: user.phone || '',
+      phoneNetwork: user.phoneNetwork || null,
+      deliveryRegion: user.deliveryRegion || '',
+      deliveryTown: user.deliveryTown || '',
+      deliveryLandmark: user.deliveryLandmark || '',
+      deliveryGps: user.deliveryGps || '',
+      address: user.address || ''
+    });
+  } catch (err) {
+    console.error('Fetch profile error:', err);
+    res.status(500).json({ error: 'Failed to load user profile.' });
+  }
+});
+
+// PUT /api/user/profile - Update authenticated user's contact & delivery information
+app.put('/api/user/profile', authenticateUser, async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    const userEmail = req.user && req.user.email;
+    const { name, phone, deliveryRegion, deliveryTown, deliveryLandmark, deliveryGps, address } = req.body || {};
+
+    if (name && !isValidString(name, 2, 80)) {
+      return res.status(400).json({ error: 'Full name must be between 2 and 80 characters.' });
+    }
+
+    let parsedPhoneData = null;
+    if (phone) {
+      parsedPhoneData = GhanaValidation.parseGhanaPhone(phone);
+      if (!parsedPhoneData.isValid) {
+        return res.status(400).json({ error: parsedPhoneData.error || 'Please provide a valid phone number.' });
+      }
+    }
+
+    let cleanRegion = deliveryRegion ? String(deliveryRegion).trim() : '';
+    let cleanTown = deliveryTown ? String(deliveryTown).trim() : '';
+    let cleanLandmark = deliveryLandmark ? String(deliveryLandmark).trim() : '';
+    let cleanGps = deliveryGps ? String(deliveryGps).trim() : '';
+    let cleanAddress = address ? String(address).trim() : '';
+
+    if (cleanRegion || cleanTown || cleanLandmark) {
+      const addrValidation = GhanaValidation.validateGhanaAddress({
+        region: cleanRegion,
+        town: cleanTown,
+        landmark: cleanLandmark,
+        gps: cleanGps
+      });
+      if (!addrValidation.isValid) {
+        const firstErr = Object.values(addrValidation.errors)[0];
+        return res.status(400).json({ error: firstErr || 'Invalid delivery address details.' });
+      }
+      cleanRegion = addrValidation.values.region;
+      cleanTown = addrValidation.values.town;
+      cleanLandmark = addrValidation.values.landmark;
+      cleanGps = addrValidation.values.gps;
+      if (!cleanAddress) {
+        cleanAddress = addrValidation.values.formattedAddress;
+      }
+    }
+
+    const updates = {};
+    if (name) updates.name = name.trim();
+    if (parsedPhoneData) {
+      updates.phone = parsedPhoneData.localFormat || phone.trim();
+      updates.phoneNetwork = parsedPhoneData.network;
+    }
+    if (cleanRegion) updates.deliveryRegion = cleanRegion;
+    if (cleanTown) updates.deliveryTown = cleanTown;
+    if (cleanLandmark) updates.deliveryLandmark = cleanLandmark;
+    if (cleanGps !== undefined) updates.deliveryGps = cleanGps;
+    if (cleanAddress) updates.address = cleanAddress;
+
+    if (isMongoConnected) {
+      const updatedUser = await User.findOneAndUpdate(
+        {
+          $or: [
+            { _id: mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : null },
+            { email: userEmail ? userEmail.toLowerCase() : null }
+          ].filter(Boolean)
+        },
+        { $set: updates },
+        { new: true }
+      );
+      if (!updatedUser) {
+        return res.status(404).json({ error: 'User profile not found.' });
+      }
+      return res.json({
+        message: 'Profile updated successfully!',
+        user: {
+          id: updatedUser._id,
+          username: updatedUser.username,
+          email: updatedUser.email,
+          name: updatedUser.name,
+          phone: updatedUser.phone,
+          phoneNetwork: updatedUser.phoneNetwork,
+          deliveryRegion: updatedUser.deliveryRegion,
+          deliveryTown: updatedUser.deliveryTown,
+          deliveryLandmark: updatedUser.deliveryLandmark,
+          deliveryGps: updatedUser.deliveryGps,
+          address: updatedUser.address
+        }
+      });
+    }
+
+    // In-memory fallback
+    const userIndex = inMemory.users.findIndex(u => 
+      (userId && String(u.id) === String(userId)) || 
+      (userEmail && u.email && u.email.toLowerCase() === userEmail.toLowerCase())
+    );
+    if (userIndex === -1) {
+      return res.status(404).json({ error: 'User profile not found.' });
+    }
+
+    inMemory.users[userIndex] = { ...inMemory.users[userIndex], ...updates };
+    const updatedUser = inMemory.users[userIndex];
+
+    return res.json({
+      message: 'Profile updated successfully!',
+      user: {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        phone: updatedUser.phone,
+        phoneNetwork: updatedUser.phoneNetwork,
+        deliveryRegion: updatedUser.deliveryRegion,
+        deliveryTown: updatedUser.deliveryTown,
+        deliveryLandmark: updatedUser.deliveryLandmark,
+        deliveryGps: updatedUser.deliveryGps,
+        address: updatedUser.address
+      }
+    });
+  } catch (err) {
+    console.error('Update profile error:', err);
+    res.status(500).json({ error: 'Failed to update profile.' });
   }
 });
 
@@ -1879,3 +2201,4 @@ module.exports = app;
 module.exports.Product = Product;
 module.exports.seedProducts = seedProducts;
 module.exports.staticProducts = staticProducts;
+module.exports.isValidPhone = isValidPhone;

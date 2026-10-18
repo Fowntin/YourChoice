@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Checkout | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610180758" />
+  <link rel="stylesheet" href="style.css?v=v202610180855" />
 </head>
 <body>
   <header class="navbar">
@@ -27,11 +27,51 @@
     <section class="checkout-form-section">
       <div id="checkout-member-badge" class="checkout-member-badge" style="display: none;"></div>
       <form id="checkout-form">
-        <h2>Customer Information</h2>
-        <input type="text" id="customer-name" name="name" placeholder="Full Name" required minlength="2" maxlength="80" autocomplete="name" />
-        <input type="email" id="customer-email" name="email" placeholder="Email Address" required maxlength="254" autocomplete="email" />
-        <input type="tel" id="customer-phone" name="phone" placeholder="Phone Number (e.g. +233 24 123 4567)" required minlength="7" maxlength="25" autocomplete="tel" />
-        <input type="text" id="customer-address" name="address" placeholder="Delivery Address" required minlength="5" maxlength="250" autocomplete="street-address" />
+        <h2>Customer & Delivery Details</h2>
+        <div class="form-group-wrap">
+          <label for="customer-name">Full Name *</label>
+          <input type="text" id="customer-name" name="name" placeholder="Kwame Mensah" required minlength="2" maxlength="80" autocomplete="name" />
+        </div>
+
+        <div class="form-group-wrap">
+          <label for="customer-email">Email Address *</label>
+          <input type="email" id="customer-email" name="email" placeholder="kwame@example.com" required maxlength="254" autocomplete="email" />
+        </div>
+
+        <div class="form-group-wrap">
+          <label for="customer-phone">Phone Number (MoMo / Delivery Call) *</label>
+          <div class="phone-input-wrap">
+            <input type="tel" id="customer-phone" name="phone" placeholder="024 123 4567 or +233 24 123 4567" required autocomplete="tel" />
+            <span id="phone-network-badge" class="phone-network-badge" style="display: none;"></span>
+          </div>
+          <small id="phone-hint" class="field-hint">Supports MTN, Telecel (Vodafone), and AT (AirtelTigo)</small>
+          <div id="phone-error" class="field-error" style="display: none;"></div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group-wrap">
+            <label for="delivery-region">Region *</label>
+            <select id="delivery-region" name="deliveryRegion" required>
+              <option value="">Select Region...</option>
+            </select>
+          </div>
+          <div class="form-group-wrap">
+            <label for="delivery-town">Town / City / Suburb *</label>
+            <input type="text" id="delivery-town" name="deliveryTown" placeholder="e.g. East Legon, Osu, Kumasi" required minlength="2" maxlength="80" />
+          </div>
+        </div>
+
+        <div class="form-group-wrap">
+          <label for="delivery-landmark">Street & Nearest Landmark *</label>
+          <input type="text" id="delivery-landmark" name="deliveryLandmark" placeholder="e.g. Off Boundary Rd, Opposite Shell Filling Station" required minlength="4" maxlength="180" />
+          <small class="field-hint">Essential for dispatch riders to deliver directly to your door</small>
+        </div>
+
+        <div class="form-group-wrap">
+          <label for="delivery-gps">GhanaPost GPS Digital Address <span style="font-weight: normal; color: #6b7280;">(Optional)</span></label>
+          <input type="text" id="delivery-gps" name="deliveryGps" placeholder="e.g. GA-183-9024" maxlength="15" style="text-transform: uppercase;" />
+          <div id="gps-error" class="field-error" style="display: none;"></div>
+        </div>
       </form>
     </section>
     <section class="order-summary-section">
@@ -161,7 +201,8 @@
     </div>
   </div>
 
-  <script src="script.js?v=v202610180758"></script>
+  <script src="ghana-validation.js?v=v202610180900"></script>
+  <script src="script.js?v=v202610180855"></script>
   <script>
     // Escape helper
     function escapeHtml(str) {
@@ -169,28 +210,118 @@
       return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
     }
 
+    // Populate Ghana Administrative Regions
+    function initGhanaRegions() {
+      const regionSelect = document.getElementById('delivery-region');
+      if (!regionSelect || !window.GhanaValidation) return;
+      
+      const currentVal = regionSelect.value;
+      regionSelect.innerHTML = '<option value="">Select Region...</option>';
+      GhanaValidation.GHANA_REGIONS.forEach(reg => {
+        const opt = document.createElement('option');
+        opt.value = reg;
+        opt.textContent = reg;
+        if (reg === currentVal) opt.selected = true;
+        regionSelect.appendChild(opt);
+      });
+    }
+
+    // Setup interactive Ghana phone & network badge detection
+    function setupPhoneValidation() {
+      const phoneInput = document.getElementById('customer-phone');
+      const badge = document.getElementById('phone-network-badge');
+      const errorEl = document.getElementById('phone-error');
+      if (!phoneInput || !badge) return;
+
+      function updatePhoneUI() {
+        const val = phoneInput.value.trim();
+        if (!val || !window.GhanaValidation) {
+          badge.style.display = 'none';
+          if (errorEl) errorEl.style.display = 'none';
+          return;
+        }
+
+        const res = GhanaValidation.parseGhanaPhone(val);
+        if (res.network) {
+          badge.style.display = 'inline-flex';
+          badge.textContent = res.network;
+          badge.className = 'phone-network-badge ' + (res.network ? res.network.toLowerCase() : 'intl');
+        } else {
+          badge.style.display = 'none';
+        }
+
+        if (errorEl) {
+          if (val.length >= 3 && !res.isValid) {
+            errorEl.style.display = 'block';
+            errorEl.textContent = res.error || 'Invalid phone format';
+          } else {
+            errorEl.style.display = 'none';
+          }
+        }
+      }
+
+      phoneInput.addEventListener('input', updatePhoneUI);
+      phoneInput.addEventListener('blur', updatePhoneUI);
+    }
+
+    // Setup GhanaPost GPS inline format feedback
+    function setupGpsValidation() {
+      const gpsInput = document.getElementById('delivery-gps');
+      const errorEl = document.getElementById('gps-error');
+      if (!gpsInput || !errorEl) return;
+
+      gpsInput.addEventListener('blur', () => {
+        const val = gpsInput.value.trim();
+        if (!val || !window.GhanaValidation) {
+          errorEl.style.display = 'none';
+          return;
+        }
+        const res = GhanaValidation.validateGhanaPostGPS(val);
+        if (!res.isValid) {
+          errorEl.style.display = 'block';
+          errorEl.textContent = res.error;
+        } else {
+          errorEl.style.display = 'none';
+          if (res.formatted) gpsInput.value = res.formatted;
+        }
+      });
+    }
+
     // Auto-prefill customer details for signed-in users
     function prefillCustomerDetails() {
       const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       const savedPhone = localStorage.getItem('savedCustomerPhone') || user.phone || '';
-      const savedAddress = localStorage.getItem('savedCustomerAddress') || user.address || '';
+      const savedRegion = localStorage.getItem('savedCustomerRegion') || user.deliveryRegion || '';
+      const savedTown = localStorage.getItem('savedCustomerTown') || user.deliveryTown || '';
+      const savedLandmark = localStorage.getItem('savedCustomerLandmark') || user.deliveryLandmark || '';
+      const savedGps = localStorage.getItem('savedCustomerGps') || user.deliveryGps || '';
 
       const nameInput = document.getElementById('customer-name');
       const emailInput = document.getElementById('customer-email');
       const phoneInput = document.getElementById('customer-phone');
-      const addressInput = document.getElementById('customer-address');
+      const regionSelect = document.getElementById('delivery-region');
+      const townInput = document.getElementById('delivery-town');
+      const landmarkInput = document.getElementById('delivery-landmark');
+      const gpsInput = document.getElementById('delivery-gps');
       const badgeEl = document.getElementById('checkout-member-badge');
 
       if (userLoggedIn && (user.name || user.email || user.username)) {
         if (nameInput && !nameInput.value) nameInput.value = user.name || user.username || '';
         if (emailInput && !emailInput.value) emailInput.value = user.email || '';
         if (phoneInput && !phoneInput.value && savedPhone) phoneInput.value = savedPhone;
-        if (addressInput && !addressInput.value && savedAddress) addressInput.value = savedAddress;
+        if (regionSelect && !regionSelect.value && savedRegion) regionSelect.value = savedRegion;
+        if (townInput && !townInput.value && savedTown) townInput.value = savedTown;
+        if (landmarkInput && !landmarkInput.value && savedLandmark) landmarkInput.value = savedLandmark;
+        if (gpsInput && !gpsInput.value && savedGps) gpsInput.value = savedGps;
+
+        if (phoneInput && phoneInput.value) {
+          phoneInput.dispatchEvent(new Event('input'));
+        }
 
         if (badgeEl) {
           badgeEl.style.display = 'flex';
-          badgeEl.innerHTML = `<span>✨ Signed in as <strong>${escapeHtml(user.name || user.username || 'Member')}</strong> — saved details loaded</span>`;
+          badgeEl.innerHTML = `<span>✨ Signed in as <strong>${escapeHtml(user.name || user.username || 'Member')}</strong> — saved delivery details loaded</span>`;
         }
       }
 
@@ -202,7 +333,14 @@
           if (pending.name && nameInput && !nameInput.value) nameInput.value = pending.name;
           if (pending.email && emailInput && !emailInput.value) emailInput.value = pending.email;
           if (pending.phone && phoneInput && !phoneInput.value) phoneInput.value = pending.phone;
-          if (pending.address && addressInput && !addressInput.value) addressInput.value = pending.address;
+          if (pending.deliveryRegion && regionSelect && !regionSelect.value) regionSelect.value = pending.deliveryRegion;
+          if (pending.deliveryTown && townInput && !townInput.value) townInput.value = pending.deliveryTown;
+          if (pending.deliveryLandmark && landmarkInput && !landmarkInput.value) landmarkInput.value = pending.deliveryLandmark;
+          if (pending.deliveryGps && gpsInput && !gpsInput.value) gpsInput.value = pending.deliveryGps;
+          
+          if (phoneInput && phoneInput.value) {
+            phoneInput.dispatchEvent(new Event('input'));
+          }
           sessionStorage.removeItem('pendingCheckoutForm');
         }
       } catch (err) {
@@ -245,6 +383,9 @@
       document.getElementById('place-order-btn').disabled = false;
     }
 
+    initGhanaRegions();
+    setupPhoneValidation();
+    setupGpsValidation();
     loadOrderSummary();
     prefillCustomerDetails();
 
@@ -263,14 +404,25 @@
       const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
       const authToken = localStorage.getItem('authToken');
 
+      const nameVal = (formData.get('name') || '').trim();
+      const emailVal = (formData.get('email') || '').trim();
+      const phoneVal = (formData.get('phone') || '').trim();
+      const regionVal = (formData.get('deliveryRegion') || '').trim();
+      const townVal = (formData.get('deliveryTown') || '').trim();
+      const landmarkVal = (formData.get('deliveryLandmark') || '').trim();
+      const gpsVal = (formData.get('deliveryGps') || '').trim();
+
       // Check if user is authenticated before sending order to server
       if (!userLoggedIn || !authToken) {
         // Preserve customer form input to resume frictionless checkout after auth
         const pendingData = {
-          name: formData.get('name').trim(),
-          email: formData.get('email').trim(),
-          phone: formData.get('phone').trim(),
-          address: formData.get('address').trim()
+          name: nameVal,
+          email: emailVal,
+          phone: phoneVal,
+          deliveryRegion: regionVal,
+          deliveryTown: townVal,
+          deliveryLandmark: landmarkVal,
+          deliveryGps: gpsVal
         };
         sessionStorage.setItem('pendingCheckoutForm', JSON.stringify(pendingData));
         sessionStorage.setItem('redirectAfterAuth', 'checkout.html');
@@ -281,12 +433,54 @@
         }, 1200);
         return;
       }
+
+      // 1. Validate Ghanaian Phone Number (Supports MoMo & Delivery)
+      let phoneValidation = { isValid: true, localFormat: phoneVal, network: null };
+      if (window.GhanaValidation) {
+        phoneValidation = GhanaValidation.parseGhanaPhone(phoneVal);
+        if (!phoneValidation.isValid) {
+          showToast(phoneValidation.error || 'Please provide a valid Ghana phone number.', 'error');
+          const phoneInput = document.getElementById('customer-phone');
+          if (phoneInput) phoneInput.focus();
+          return;
+        }
+
+        // 2. Validate Structured Ghana Delivery Address
+        const addrValidation = GhanaValidation.validateGhanaAddress({
+          region: regionVal,
+          town: townVal,
+          landmark: landmarkVal,
+          gps: gpsVal
+        });
+
+        if (!addrValidation.isValid) {
+          const firstErrorMsg = Object.values(addrValidation.errors)[0] || 'Please complete all required delivery details.';
+          showToast(firstErrorMsg, 'error');
+          if (addrValidation.errors.region) {
+            document.getElementById('delivery-region')?.focus();
+          } else if (addrValidation.errors.town) {
+            document.getElementById('delivery-town')?.focus();
+          } else if (addrValidation.errors.landmark) {
+            document.getElementById('delivery-landmark')?.focus();
+          } else if (addrValidation.errors.gps) {
+            document.getElementById('delivery-gps')?.focus();
+          }
+          return;
+        }
+      }
       
+      const addrRes = window.GhanaValidation ? GhanaValidation.validateGhanaAddress({ region: regionVal, town: townVal, landmark: landmarkVal, gps: gpsVal }) : { values: { formattedAddress: `${townVal}, ${landmarkVal}, ${regionVal}, Ghana` } };
+
       const orderData = {
-        name: formData.get('name').trim(),
-        email: formData.get('email').trim(),
-        phone: formData.get('phone').trim(),
-        address: formData.get('address').trim(),
+        name: nameVal,
+        email: emailVal,
+        phone: phoneValidation.localFormat || phoneVal,
+        phoneNetwork: phoneValidation.network || null,
+        deliveryRegion: regionVal,
+        deliveryTown: townVal,
+        deliveryLandmark: landmarkVal,
+        deliveryGps: gpsVal,
+        address: addrRes.values.formattedAddress,
         items: cart,
         total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
       };
@@ -327,6 +521,10 @@
           const data = await response.json();
           // Persist customer contact details for future frictionless checkouts
           if (orderData.phone) localStorage.setItem('savedCustomerPhone', orderData.phone);
+          if (orderData.deliveryRegion) localStorage.setItem('savedCustomerRegion', orderData.deliveryRegion);
+          if (orderData.deliveryTown) localStorage.setItem('savedCustomerTown', orderData.deliveryTown);
+          if (orderData.deliveryLandmark) localStorage.setItem('savedCustomerLandmark', orderData.deliveryLandmark);
+          if (orderData.deliveryGps) localStorage.setItem('savedCustomerGps', orderData.deliveryGps);
           if (orderData.address) localStorage.setItem('savedCustomerAddress', orderData.address);
           if (data && data.orderId) sessionStorage.setItem('justPlacedOrderId', data.orderId);
 
@@ -377,11 +575,9 @@
         const data = await response.json().catch(() => ({}));
         showToast(data.error || 'Failed to place order. Please try again.', 'error');
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Place Order';
-      } catch (error) {
-        console.error('Order submission network error:', error);
-        // Retain cart and form state for immediate user retry
-        showToast('Unable to connect to the order service. Please check your internet connection or try again shortly.', 'error');
+      } catch (networkError) {
+        console.error('Order submission network error:', networkError);
+        showToast('Unable to connect to the order service. Please check your internet connection and try again.', 'error');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Place Order';
       }

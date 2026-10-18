@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Register | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610180831" />
+  <link rel="stylesheet" href="style.css?v=v202610180855" />
 </head>
 <body>
   <header class="navbar">
@@ -47,17 +47,42 @@
         
         <div class="form-group">
           <label for="name">Full Name *</label>
-          <input type="text" id="name" name="name" required minlength="2" maxlength="80" autocomplete="name" />
+          <input type="text" id="name" name="name" required minlength="2" maxlength="80" autocomplete="name" placeholder="Kwame Mensah" />
         </div>
         
         <div class="form-group">
-          <label for="phone">Phone Number</label>
-          <input type="tel" id="phone" name="phone" maxlength="25" autocomplete="tel" placeholder="+233 24 123 4567" />
+          <label for="phone">Phone Number (MoMo / Delivery) *</label>
+          <div class="phone-input-wrap">
+            <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="024 123 4567 or +233 24 123 4567" />
+            <span id="phone-network-badge" class="phone-network-badge" style="display: none;"></span>
+          </div>
+          <small id="phone-hint" class="field-hint">Supports MTN, Telecel (Vodafone), and AT (AirtelTigo)</small>
+          <div id="phone-error" class="field-error" style="display: none;"></div>
         </div>
         
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label for="delivery-region">Delivery Region *</label>
+            <select id="delivery-region" name="deliveryRegion" required>
+              <option value="">Select Region...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="delivery-town">Town / City / Suburb *</label>
+            <input type="text" id="delivery-town" name="deliveryTown" required minlength="2" maxlength="80" placeholder="e.g. East Legon, Kumasi, Osu" />
+          </div>
+        </div>
+
         <div class="form-group">
-          <label for="address">Address</label>
-          <textarea id="address" name="address" rows="3" maxlength="200" autocomplete="street-address" placeholder="Delivery street, neighborhood, city"></textarea>
+          <label for="delivery-landmark">Street & Nearest Landmark *</label>
+          <input type="text" id="delivery-landmark" name="deliveryLandmark" required minlength="4" maxlength="180" placeholder="e.g. Off Boundary Rd, Near Starbites" />
+          <small class="field-hint">Helps courier riders find you accurately</small>
+        </div>
+
+        <div class="form-group">
+          <label for="delivery-gps">GhanaPost GPS Digital Address <span style="font-weight: normal; color: #6b7280;">(Optional)</span></label>
+          <input type="text" id="delivery-gps" name="deliveryGps" placeholder="e.g. GA-183-9024" maxlength="15" style="text-transform: uppercase;" />
+          <div id="gps-error" class="field-error" style="display: none;"></div>
         </div>
         
         <button type="submit" class="auth-btn">Create Account</button>
@@ -71,11 +96,118 @@
     </div>
   </div>
 
+  <script src="ghana-validation.js?v=v202610180900"></script>
   <script>
+    // Populate Ghana Administrative Regions
+    function initGhanaRegions() {
+      const regionSelect = document.getElementById('delivery-region');
+      if (!regionSelect || !window.GhanaValidation) return;
+      
+      regionSelect.innerHTML = '<option value="">Select Region...</option>';
+      GhanaValidation.GHANA_REGIONS.forEach(reg => {
+        const opt = document.createElement('option');
+        opt.value = reg;
+        opt.textContent = reg;
+        regionSelect.appendChild(opt);
+      });
+    }
+
+    // Setup interactive Ghana phone & network badge detection
+    function setupPhoneValidation() {
+      const phoneInput = document.getElementById('phone');
+      const badge = document.getElementById('phone-network-badge');
+      const errorEl = document.getElementById('phone-error');
+      if (!phoneInput || !badge) return;
+
+      function updatePhoneUI() {
+        const val = phoneInput.value.trim();
+        if (!val || !window.GhanaValidation) {
+          badge.style.display = 'none';
+          if (errorEl) errorEl.style.display = 'none';
+          return;
+        }
+
+        const res = GhanaValidation.parseGhanaPhone(val);
+        if (res.network) {
+          badge.style.display = 'inline-flex';
+          badge.textContent = res.network;
+          badge.className = 'phone-network-badge ' + (res.network ? res.network.toLowerCase() : 'intl');
+        } else {
+          badge.style.display = 'none';
+        }
+
+        if (errorEl) {
+          if (val.length >= 3 && !res.isValid) {
+            errorEl.style.display = 'block';
+            errorEl.textContent = res.error || 'Invalid phone format';
+          } else {
+            errorEl.style.display = 'none';
+          }
+        }
+      }
+
+      phoneInput.addEventListener('input', updatePhoneUI);
+      phoneInput.addEventListener('blur', updatePhoneUI);
+    }
+
+    initGhanaRegions();
+    setupPhoneValidation();
+
     document.getElementById('register-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       
       const formData = new FormData(e.target);
+      const messageEl = document.getElementById('auth-message');
+      const submitBtn = e.target.querySelector('button[type="submit"]') || document.querySelector('.auth-btn');
+
+      const phoneVal = (formData.get('phone') || '').trim();
+      const regionVal = (formData.get('deliveryRegion') || '').trim();
+      const townVal = (formData.get('deliveryTown') || '').trim();
+      const landmarkVal = (formData.get('deliveryLandmark') || '').trim();
+      const gpsVal = (formData.get('deliveryGps') || '').trim();
+
+      // Check online connectivity before attempting registration
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        messageEl.textContent = 'You appear to be offline. Please check your internet connection and try again.';
+        messageEl.className = 'auth-message error';
+        return;
+      }
+
+      // 1. Validate Ghanaian Phone Number (Supports MoMo & Delivery)
+      let phoneValidation = { isValid: true, localFormat: phoneVal, network: null };
+      if (window.GhanaValidation) {
+        phoneValidation = GhanaValidation.parseGhanaPhone(phoneVal);
+        if (!phoneValidation.isValid) {
+          messageEl.textContent = phoneValidation.error || 'Please provide a valid Ghana phone number.';
+          messageEl.className = 'auth-message error';
+          document.getElementById('phone')?.focus();
+          return;
+        }
+
+        // 2. Validate Structured Ghana Delivery Address
+        const addrValidation = GhanaValidation.validateGhanaAddress({
+          region: regionVal,
+          town: townVal,
+          landmark: landmarkVal,
+          gps: gpsVal
+        });
+
+        if (!addrValidation.isValid) {
+          const firstErrorMsg = Object.values(addrValidation.errors)[0] || 'Please complete all required delivery details.';
+          messageEl.textContent = firstErrorMsg;
+          messageEl.className = 'auth-message error';
+          if (addrValidation.errors.region) {
+            document.getElementById('delivery-region')?.focus();
+          } else if (addrValidation.errors.town) {
+            document.getElementById('delivery-town')?.focus();
+          } else if (addrValidation.errors.landmark) {
+            document.getElementById('delivery-landmark')?.focus();
+          } else if (addrValidation.errors.gps) {
+            document.getElementById('delivery-gps')?.focus();
+          }
+          return;
+        }
+      }
 
       // Collect existing guest cart items (handles envelope and array)
       let guestCart = [];
@@ -101,26 +233,23 @@
         guestWishlist = [];
       }
 
+      const addrRes = window.GhanaValidation ? GhanaValidation.validateGhanaAddress({ region: regionVal, town: townVal, landmark: landmarkVal, gps: gpsVal }) : { values: { formattedAddress: `${townVal}, ${landmarkVal}, ${regionVal}, Ghana` } };
+
       const userData = {
         username: formData.get('username'),
         email: formData.get('email'),
         password: formData.get('password'),
         name: formData.get('name'),
-        phone: formData.get('phone'),
-        address: formData.get('address'),
+        phone: phoneValidation.localFormat || phoneVal,
+        phoneNetwork: phoneValidation.network || null,
+        deliveryRegion: regionVal,
+        deliveryTown: townVal,
+        deliveryLandmark: landmarkVal,
+        deliveryGps: gpsVal,
+        address: addrRes.values.formattedAddress,
         guestCart,
         guestWishlist
       };
-      
-      const messageEl = document.getElementById('auth-message');
-      const submitBtn = e.target.querySelector('button[type="submit"]') || document.querySelector('.auth-btn');
-
-      // Check online connectivity before attempting registration
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        messageEl.textContent = 'You appear to be offline. Please check your internet connection and try again.';
-        messageEl.className = 'auth-message error';
-        return;
-      }
 
       // Purge any legacy local user fallback entries
       try {

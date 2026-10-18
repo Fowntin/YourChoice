@@ -654,3 +654,156 @@ test('Hybrid Product Catalog Decoupling & Checkout Inventory Validation', async 
   assert.equal(updatedItem.totalSales, 1);
 });
 
+test('Ghanaian Localization & Delivery Field Validation Suite', async () => {
+  const GhanaValidation = require('../../ghana-validation.js');
+
+  // 1. Ghanaian Phone & Telecom Network Detection
+  const mtnLocal = GhanaValidation.parseGhanaPhone('024 123 4567');
+  assert.equal(mtnLocal.isValid, true);
+  assert.equal(mtnLocal.network, 'MTN');
+  assert.equal(mtnLocal.localFormat, '0241234567');
+  assert.equal(mtnLocal.internationalFormat, '+233241234567');
+
+  const mtnIntl = GhanaValidation.parseGhanaPhone('+233549988776');
+  assert.equal(mtnIntl.isValid, true);
+  assert.equal(mtnIntl.network, 'MTN');
+
+  const telecel = GhanaValidation.parseGhanaPhone('0201234567');
+  assert.equal(telecel.isValid, true);
+  assert.equal(telecel.network, 'Telecel');
+
+  const atMoney = GhanaValidation.parseGhanaPhone('0271234567');
+  assert.equal(atMoney.isValid, true);
+  assert.equal(atMoney.network, 'AT');
+
+  // Invalid numbers
+  const invalidPrefix = GhanaValidation.parseGhanaPhone('0231234567');
+  assert.equal(invalidPrefix.isValid, false);
+  assert.match(invalidPrefix.error, /not a recognized Ghana mobile network/i);
+
+  const shortNumber = GhanaValidation.parseGhanaPhone('02412345');
+  assert.equal(shortNumber.isValid, false);
+  assert.match(shortNumber.error, /must be 10 digits/i);
+
+  // 2. GhanaPost GPS Digital Address Format
+  const validGps = GhanaValidation.validateGhanaPostGPS('GA-183-9024');
+  assert.equal(validGps.isValid, true);
+  assert.equal(validGps.formatted, 'GA-183-9024');
+
+  const noHyphenGps = GhanaValidation.validateGhanaPostGPS('ak0392311');
+  assert.equal(noHyphenGps.isValid, true);
+  assert.equal(noHyphenGps.formatted, 'AK-039-2311');
+
+  const invalidGps = GhanaValidation.validateGhanaPostGPS('INVALID-GPS');
+  assert.equal(invalidGps.isValid, false);
+
+  const emptyGps = GhanaValidation.validateGhanaPostGPS('');
+  assert.equal(emptyGps.isValid, true);
+  assert.equal(emptyGps.isEmpty, true);
+
+  // 3. Structured Delivery Address Validation
+  const validAddress = GhanaValidation.validateGhanaAddress({
+    region: 'Greater Accra',
+    town: 'East Legon',
+    landmark: 'Opposite Shell Filling Station, near Starbites',
+    gps: 'GA-183-9024'
+  });
+  assert.equal(validAddress.isValid, true);
+  assert.equal(validAddress.values.formattedAddress, 'East Legon, Opposite Shell Filling Station, near Starbites (GPS: GA-183-9024), Greater Accra, Ghana');
+
+  const missingLandmark = GhanaValidation.validateGhanaAddress({
+    region: 'Ashanti',
+    town: 'Kumasi',
+    landmark: ''
+  });
+  assert.equal(missingLandmark.isValid, false);
+  assert.ok(missingLandmark.errors.landmark);
+
+  const invalidRegion = GhanaValidation.validateGhanaAddress({
+    region: 'Atlantis Region',
+    town: 'Kumasi',
+    landmark: 'Near market'
+  });
+  assert.equal(invalidRegion.isValid, false);
+  assert.ok(invalidRegion.errors.region);
+
+  // 4. End-to-end Profile lifecycle with Ghana delivery details
+  const ghanaUserReg = await request(app).post('/api/users/register').send({
+    username: `ghana_${Date.now()}`,
+    email: `ghana_${Date.now()}@example.com`,
+    password: 'Password123!',
+    name: 'Kofi Mensah',
+    phone: '024 123 4567',
+    deliveryRegion: 'Greater Accra',
+    deliveryTown: 'Osu',
+    deliveryLandmark: 'Oxford Street, Behind Papaye',
+    deliveryGps: 'GA-012-3456'
+  });
+  assert.equal(ghanaUserReg.status, 201);
+  assert.equal(ghanaUserReg.body.user.phoneNetwork, 'MTN');
+  assert.equal(ghanaUserReg.body.user.deliveryRegion, 'Greater Accra');
+  const ghanaToken = ghanaUserReg.body.token;
+
+  // Retrieve user profile
+  const profileGet = await request(app)
+    .get('/api/user/profile')
+    .set('Authorization', `Bearer ${ghanaToken}`);
+  assert.equal(profileGet.status, 200);
+  assert.equal(profileGet.body.deliveryTown, 'Osu');
+  assert.equal(profileGet.body.phoneNetwork, 'MTN');
+
+  // Update user profile with Telecel number & Kumasi delivery
+  const profileUpdate = await request(app)
+    .put('/api/user/profile')
+    .set('Authorization', `Bearer ${ghanaToken}`)
+    .send({
+      name: 'Kofi A. Mensah',
+      phone: '020 987 6543',
+      deliveryRegion: 'Ashanti',
+      deliveryTown: 'Kumasi Central',
+      deliveryLandmark: 'Adum, Opposite Melcom',
+      deliveryGps: 'AK-123-4567'
+    });
+  assert.equal(profileUpdate.status, 200);
+  assert.equal(profileUpdate.body.user.name, 'Kofi A. Mensah');
+  assert.equal(profileUpdate.body.user.phoneNetwork, 'Telecel');
+  assert.equal(profileUpdate.body.user.deliveryRegion, 'Ashanti');
+  assert.equal(profileUpdate.body.user.deliveryTown, 'Kumasi Central');
+
+  // 5. Order placement with structured delivery data
+  const orderRes = await request(app)
+    .post('/api/orders')
+    .set('Authorization', `Bearer ${ghanaToken}`)
+    .send({
+      name: 'Kofi A. Mensah',
+      email: ghanaUserReg.body.user.email,
+      phone: '020 987 6543',
+      deliveryRegion: 'Ashanti',
+      deliveryTown: 'Kumasi Central',
+      deliveryLandmark: 'Adum, Opposite Melcom',
+      deliveryGps: 'AK-123-4567',
+      items: [{ id: 'item_test_1', name: 'USB-C Cable', price: 25, quantity: 2 }],
+      total: 50
+    });
+  assert.equal(orderRes.status, 201);
+  assert.ok(orderRes.body.orderId);
+
+  // Reject order with invalid phone
+  const badPhoneOrder = await request(app)
+    .post('/api/orders')
+    .set('Authorization', `Bearer ${ghanaToken}`)
+    .send({
+      name: 'Kofi A. Mensah',
+      email: ghanaUserReg.body.user.email,
+      phone: '12345',
+      deliveryRegion: 'Ashanti',
+      deliveryTown: 'Kumasi Central',
+      deliveryLandmark: 'Adum, Opposite Melcom',
+      items: [{ id: 'item_test_1', name: 'USB-C Cable', price: 25, quantity: 1 }],
+      total: 25
+    });
+  assert.equal(badPhoneOrder.status, 400);
+  assert.match(badPhoneOrder.body.error, /phone/i);
+});
+
+

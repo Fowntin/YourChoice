@@ -7,7 +7,7 @@
   <meta name="description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
   <meta property="og:title" content="YourChoice" />
   <meta property="og:description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
-  <link rel="stylesheet" href="style.css?v=v202610180831" />
+  <link rel="stylesheet" href="style.css?v=v202610180855" />
 </head>
 <body>
 
@@ -41,6 +41,7 @@
       </li>
       <li id="user-info" class="user-nav-group" style="display: none;">
         <span class="user-greeting">Hi, <strong id="user-name">User</strong></span>
+        <button id="profile-btn" class="nav-btn-link" type="button" title="Delivery Profile & Settings" style="color: #ff6f00; font-size: 0.85rem; font-weight: 600; background: none; border: none; cursor: pointer; padding: 0 0.35rem;">Delivery Profile</button>
         <button id="logout-link" class="logout-text-link" type="button">Logout</button>
       </li>
     </ul>
@@ -145,6 +146,7 @@
     </div>
     <div id="drawer-user-info" class="drawer-user-info" style="display: none;">
       <span class="user-greeting">Hi, <strong id="drawer-user-name">User</strong></span>
+      <button id="drawer-profile-btn" class="drawer-btn" type="button" style="padding: 0.45rem 0.8rem; font-size: 0.85rem; background: #ff6f00; color: #fff; border: none; border-radius: 6px; cursor: pointer; margin: 0.4rem 0;">Delivery Profile</button>
       <button id="drawer-logout-link" class="logout-text-link" type="button">Logout</button>
     </div>
   </div>
@@ -463,6 +465,73 @@
   </div>
 </div>
 
+<!-- Customer Profile & Delivery Settings Modal -->
+<div id="profile-modal-backdrop" class="profile-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+  <div class="profile-modal-card">
+    <div class="profile-modal-header">
+      <div>
+        <h2 id="profile-modal-title" class="profile-modal-title">📍 Delivery Profile & Settings</h2>
+        <p class="profile-modal-subtitle">Configure your Ghana delivery address and mobile contact for rapid checkout</p>
+      </div>
+      <button id="close-profile-modal-btn" class="profile-modal-close" aria-label="Close profile modal">&times;</button>
+    </div>
+
+    <div id="profile-message" class="profile-message-banner" role="alert"></div>
+
+    <form id="user-profile-form">
+      <div class="form-group-wrap">
+        <label for="profile-name">Full Name *</label>
+        <input type="text" id="profile-name" name="name" required minlength="2" maxlength="80" autocomplete="name" placeholder="Kwame Mensah" />
+      </div>
+
+      <div class="form-group-wrap">
+        <label for="profile-email">Account Email</label>
+        <input type="email" id="profile-email" name="email" readonly disabled />
+      </div>
+
+      <div class="form-group-wrap">
+        <label for="profile-phone">Phone Number (MoMo / Delivery Call) *</label>
+        <div class="phone-input-wrap">
+          <input type="tel" id="profile-phone" name="phone" required autocomplete="tel" placeholder="024 123 4567 or +233 24 123 4567" />
+          <span id="profile-phone-network-badge" class="phone-network-badge" style="display: none;"></span>
+        </div>
+        <small class="field-hint">Supports MTN, Telecel (Vodafone), and AT (AirtelTigo)</small>
+        <div id="profile-phone-error" class="field-error" style="display: none;"></div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group-wrap">
+          <label for="profile-region">Delivery Region *</label>
+          <select id="profile-region" name="deliveryRegion" required>
+            <option value="">Select Region...</option>
+          </select>
+        </div>
+        <div class="form-group-wrap">
+          <label for="profile-town">Town / City / Suburb *</label>
+          <input type="text" id="profile-town" name="deliveryTown" required minlength="2" maxlength="80" placeholder="e.g. East Legon, Kumasi, Osu" />
+        </div>
+      </div>
+
+      <div class="form-group-wrap">
+        <label for="profile-landmark">Street & Nearest Landmark *</label>
+        <input type="text" id="profile-landmark" name="deliveryLandmark" required minlength="4" maxlength="180" placeholder="e.g. Off Boundary Rd, Near Starbites" />
+        <small class="field-hint">Critical for courier dispatch riders to locate your address</small>
+      </div>
+
+      <div class="form-group-wrap">
+        <label for="profile-gps">GhanaPost GPS Digital Address <span style="font-weight: normal; color: #6b7280;">(Optional)</span></label>
+        <input type="text" id="profile-gps" name="deliveryGps" placeholder="e.g. GA-183-9024" maxlength="15" style="text-transform: uppercase;" />
+        <div id="profile-gps-error" class="field-error" style="display: none;"></div>
+      </div>
+
+      <button type="submit" id="save-profile-btn" class="profile-save-btn">
+        Save Delivery Profile
+      </button>
+    </form>
+  </div>
+</div>
+
+
 <!-- ========================================== -->
 <!-- FOCUSED CUSTOMER SUPPORT & CONTACT MODAL   -->
 <!-- ========================================== -->
@@ -640,8 +709,9 @@
   </div>
 </div>
 
-  <script src="src/products.js?v=v202610180831"></script>
-  <script src="script.js?v=v202610180831"></script>
+  <script src="src/products.js?v=v202610180855"></script>
+  <script src="ghana-validation.js?v=v202610180900"></script>
+  <script src="script.js?v=v202610180900"></script>
   <script>
     // Check user authentication status (unified navigation)
     function checkAuthStatus() {

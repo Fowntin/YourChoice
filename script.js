@@ -1673,6 +1673,40 @@ window.addEventListener('DOMContentLoaded', () => {
   const ordersOverlay = document.getElementById('orders-overlay');
   if (ordersOverlay) ordersOverlay.addEventListener('click', closeUserOrdersModal);
 
+  // Setup Delivery Profile Modal Triggers
+  const profileTriggers = [
+    'profile-btn',
+    'drawer-profile-btn'
+  ];
+  profileTriggers.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (typeof closeMobileDrawer === 'function') closeMobileDrawer();
+        openUserProfileModal();
+      });
+    }
+  });
+
+  const closeProfileBtn = document.getElementById('close-profile-modal-btn');
+  if (closeProfileBtn) closeProfileBtn.addEventListener('click', closeUserProfileModal);
+
+  const profileModalBackdrop = document.getElementById('profile-modal-backdrop');
+  if (profileModalBackdrop) {
+    profileModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === profileModalBackdrop) {
+        closeUserProfileModal();
+      }
+    });
+  }
+
+  const profileForm = document.getElementById('user-profile-form');
+  if (profileForm) {
+    profileForm.addEventListener('submit', handleProfileFormSubmit);
+  }
+
+
   // Check if an order was just completed and display status toast
   const justPlacedId = sessionStorage.getItem('justPlacedOrderId');
   if (justPlacedId) {
@@ -1993,6 +2027,350 @@ function closeUserOrdersModal() {
   if (modal) modal.classList.remove('show');
   if (overlay) overlay.classList.remove('show');
 }
+
+// ========================================
+// CUSTOMER DELIVERY PROFILE & SETTINGS
+// ========================================
+
+function initProfileModal() {
+  const regionSelect = document.getElementById('profile-region');
+  if (regionSelect && window.GhanaValidation && regionSelect.options.length <= 1) {
+    regionSelect.innerHTML = '<option value="">Select Region...</option>';
+    GhanaValidation.GHANA_REGIONS.forEach(reg => {
+      const opt = document.createElement('option');
+      opt.value = reg;
+      opt.textContent = reg;
+      regionSelect.appendChild(opt);
+    });
+  }
+
+  const phoneInput = document.getElementById('profile-phone');
+  const badge = document.getElementById('profile-phone-network-badge');
+  const errorEl = document.getElementById('profile-phone-error');
+
+  if (phoneInput && badge) {
+    function updateProfilePhoneUI() {
+      const val = phoneInput.value.trim();
+      if (!val || !window.GhanaValidation) {
+        badge.style.display = 'none';
+        if (errorEl) errorEl.style.display = 'none';
+        return;
+      }
+
+      const res = GhanaValidation.parseGhanaPhone(val);
+      if (res.isValid) {
+        badge.textContent = res.network;
+        badge.className = 'phone-network-badge ' + (res.network.toLowerCase().replace(/[^a-z]/g, ''));
+        badge.style.display = 'inline-flex';
+        if (errorEl) errorEl.style.display = 'none';
+      } else {
+        badge.style.display = 'none';
+        if (val.length >= 4 && errorEl) {
+          errorEl.textContent = res.error;
+          errorEl.style.display = 'block';
+        } else if (errorEl) {
+          errorEl.style.display = 'none';
+        }
+      }
+    }
+
+    phoneInput.addEventListener('input', updateProfilePhoneUI);
+    phoneInput.addEventListener('blur', updateProfilePhoneUI);
+  }
+
+  const gpsInput = document.getElementById('profile-gps');
+  const gpsError = document.getElementById('profile-gps-error');
+  if (gpsInput && gpsError) {
+    gpsInput.addEventListener('input', () => {
+      gpsInput.value = gpsInput.value.toUpperCase();
+      const val = gpsInput.value.trim();
+      if (!val || !window.GhanaValidation) {
+        gpsError.style.display = 'none';
+        return;
+      }
+      const res = GhanaValidation.validateGhanaPostGPS(val);
+      if (!res.isValid) {
+        gpsError.textContent = res.error;
+        gpsError.style.display = 'block';
+      } else {
+        gpsError.style.display = 'none';
+      }
+    });
+  }
+}
+
+async function openUserProfileModal() {
+  const modal = document.getElementById('profile-modal-backdrop');
+  if (!modal) return;
+
+  const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
+  const authToken = localStorage.getItem('authToken');
+
+  if (!userLoggedIn) {
+    if (typeof showToast === 'function') {
+      showToast('Please sign in to view and edit your delivery profile.', 'warning');
+    }
+    setTimeout(() => {
+      window.location.href = 'login.html?redirect=profile';
+    }, 900);
+    return;
+  }
+
+  initProfileModal();
+
+  // Populate from local storage initially
+  let user = {};
+  try {
+    user = JSON.parse(localStorage.getItem('user') || '{}');
+  } catch (e) {}
+
+  const nameInput = document.getElementById('profile-name');
+  const emailInput = document.getElementById('profile-email');
+  const phoneInput = document.getElementById('profile-phone');
+  const regionSelect = document.getElementById('profile-region');
+  const townInput = document.getElementById('profile-town');
+  const landmarkInput = document.getElementById('profile-landmark');
+  const gpsInput = document.getElementById('profile-gps');
+  const msgEl = document.getElementById('profile-message');
+
+  if (msgEl) {
+    msgEl.style.display = 'none';
+    msgEl.className = 'profile-message-banner';
+    msgEl.textContent = '';
+  }
+
+  if (nameInput) nameInput.value = user.name || user.username || '';
+  if (emailInput) emailInput.value = user.email || '';
+  if (phoneInput) phoneInput.value = user.phone || '';
+  if (regionSelect) regionSelect.value = user.deliveryRegion || '';
+  if (townInput) townInput.value = user.deliveryTown || '';
+  if (landmarkInput) landmarkInput.value = user.deliveryLandmark || '';
+  if (gpsInput) gpsInput.value = user.deliveryGps || '';
+
+  if (phoneInput && phoneInput.value) {
+    phoneInput.dispatchEvent(new Event('input'));
+  }
+
+  modal.style.display = 'flex';
+
+  // Fetch freshest profile from backend if authToken exists
+  if (authToken) {
+    try {
+      const res = await fetch('/api/user/profile', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+      if (res.ok) {
+        const freshUser = await res.json();
+        if (freshUser) {
+          if (nameInput) nameInput.value = freshUser.name || nameInput.value;
+          if (emailInput) emailInput.value = freshUser.email || emailInput.value;
+          if (phoneInput && freshUser.phone) phoneInput.value = freshUser.phone;
+          if (regionSelect && freshUser.deliveryRegion) regionSelect.value = freshUser.deliveryRegion;
+          if (townInput && freshUser.deliveryTown) townInput.value = freshUser.deliveryTown;
+          if (landmarkInput && freshUser.deliveryLandmark) landmarkInput.value = freshUser.deliveryLandmark;
+          if (gpsInput && freshUser.deliveryGps) gpsInput.value = freshUser.deliveryGps;
+
+          if (phoneInput && phoneInput.value) {
+            phoneInput.dispatchEvent(new Event('input'));
+          }
+
+          const merged = { ...user, ...freshUser };
+          localStorage.setItem('user', JSON.stringify(merged));
+        }
+      }
+    } catch (err) {
+      // Non-blocking: user can still view and submit cached info
+    }
+  }
+}
+
+function closeUserProfileModal() {
+  const modal = document.getElementById('profile-modal-backdrop');
+  if (modal) modal.style.display = 'none';
+}
+
+async function handleProfileFormSubmit(e) {
+  e.preventDefault();
+
+  const msgEl = document.getElementById('profile-message');
+  const submitBtn = document.getElementById('save-profile-btn');
+
+  // Check online connectivity
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    if (msgEl) {
+      msgEl.textContent = 'You appear to be offline. Please check your internet connection.';
+      msgEl.className = 'profile-message-banner error';
+      msgEl.style.display = 'block';
+    }
+    return;
+  }
+
+  const nameInput = document.getElementById('profile-name');
+  const phoneInput = document.getElementById('profile-phone');
+  const regionSelect = document.getElementById('profile-region');
+  const townInput = document.getElementById('profile-town');
+  const landmarkInput = document.getElementById('profile-landmark');
+  const gpsInput = document.getElementById('profile-gps');
+
+  const nameVal = nameInput ? nameInput.value.trim() : '';
+  const phoneVal = phoneInput ? phoneInput.value.trim() : '';
+  const regionVal = regionSelect ? regionSelect.value.trim() : '';
+  const townVal = townInput ? townInput.value.trim() : '';
+  const landmarkVal = landmarkInput ? landmarkInput.value.trim() : '';
+  const gpsVal = gpsInput ? gpsInput.value.trim() : '';
+
+  if (!nameVal || nameVal.length < 2) {
+    if (msgEl) {
+      msgEl.textContent = 'Please enter your full name (at least 2 characters).';
+      msgEl.className = 'profile-message-banner error';
+      msgEl.style.display = 'block';
+    }
+    if (nameInput) nameInput.focus();
+    return;
+  }
+
+  // 1. Validate Ghana Phone
+  let phoneValidation = { isValid: true, localFormat: phoneVal, network: null };
+  if (window.GhanaValidation) {
+    phoneValidation = GhanaValidation.parseGhanaPhone(phoneVal);
+    if (!phoneValidation.isValid) {
+      if (msgEl) {
+        msgEl.textContent = phoneValidation.error || 'Please enter a valid Ghana phone number.';
+        msgEl.className = 'profile-message-banner error';
+        msgEl.style.display = 'block';
+      }
+      if (phoneInput) phoneInput.focus();
+      return;
+    }
+
+    // 2. Validate Structured Ghana Address
+    const addrValidation = GhanaValidation.validateGhanaAddress({
+      region: regionVal,
+      town: townVal,
+      landmark: landmarkVal,
+      gps: gpsVal
+    });
+
+    if (!addrValidation.isValid) {
+      const firstErr = Object.values(addrValidation.errors)[0] || 'Please complete all required delivery details.';
+      if (msgEl) {
+        msgEl.textContent = firstErr;
+        msgEl.className = 'profile-message-banner error';
+        msgEl.style.display = 'block';
+      }
+      if (addrValidation.errors.region && regionSelect) regionSelect.focus();
+      else if (addrValidation.errors.town && townInput) townInput.focus();
+      else if (addrValidation.errors.landmark && landmarkInput) landmarkInput.focus();
+      else if (addrValidation.errors.gps && gpsInput) gpsInput.focus();
+      return;
+    }
+  }
+
+  const addrRes = window.GhanaValidation ? GhanaValidation.validateGhanaAddress({
+    region: regionVal,
+    town: townVal,
+    landmark: landmarkVal,
+    gps: gpsVal
+  }) : { values: { formattedAddress: `${townVal}, ${landmarkVal}, ${regionVal}, Ghana` } };
+
+  const authToken = localStorage.getItem('authToken');
+  if (!authToken) {
+    if (msgEl) {
+      msgEl.textContent = 'Session expired. Please log in again.';
+      msgEl.className = 'profile-message-banner error';
+      msgEl.style.display = 'block';
+    }
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving Profile...';
+  }
+
+  try {
+    const res = await fetch('/api/user/profile', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        name: nameVal,
+        phone: phoneValidation.localFormat || phoneVal,
+        phoneNetwork: phoneValidation.network || null,
+        deliveryRegion: regionVal,
+        deliveryTown: townVal,
+        deliveryLandmark: landmarkVal,
+        deliveryGps: gpsVal,
+        address: addrRes.values.formattedAddress
+      })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      if (msgEl) {
+        msgEl.textContent = '✓ Delivery profile saved successfully!';
+        msgEl.className = 'profile-message-banner success';
+        msgEl.style.display = 'block';
+      }
+
+      let currentUser = {};
+      try {
+        currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      } catch (e) {}
+
+      const updatedUser = {
+        ...currentUser,
+        ...(data.user || {}),
+        name: nameVal,
+        phone: phoneValidation.localFormat || phoneVal,
+        phoneNetwork: phoneValidation.network || null,
+        deliveryRegion: regionVal,
+        deliveryTown: townVal,
+        deliveryLandmark: landmarkVal,
+        deliveryGps: gpsVal,
+        address: addrRes.values.formattedAddress
+      };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+
+      const userNameEl = document.getElementById('user-name');
+      const drawerUserNameEl = document.getElementById('drawer-user-name');
+      if (userNameEl) userNameEl.textContent = nameVal;
+      if (drawerUserNameEl) drawerUserNameEl.textContent = nameVal;
+
+      if (typeof showToast === 'function') {
+        showToast('Delivery profile updated!', 'success');
+      }
+
+      setTimeout(() => {
+        closeUserProfileModal();
+      }, 1500);
+    } else {
+      if (msgEl) {
+        msgEl.textContent = data.error || 'Failed to update profile. Please try again.';
+        msgEl.className = 'profile-message-banner error';
+        msgEl.style.display = 'block';
+      }
+    }
+  } catch (err) {
+    if (msgEl) {
+      msgEl.textContent = 'Unable to reach the server. Please check your internet connection.';
+      msgEl.className = 'profile-message-banner error';
+      msgEl.style.display = 'block';
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save Delivery Profile';
+    }
+  }
+}
+
+
 
 // ========================================
 // CUSTOMER SUPPORT & CONTACT FORM HANDLER
