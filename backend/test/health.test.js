@@ -86,13 +86,34 @@ test('Customer Order Placement & User Orders Retrieval', async () => {
     userId: 'usr_jane_123'
   };
 
-  // 1. Place order
-  const orderRes = await request(app).post('/api/orders').send(orderPayload);
+  // 1. Unauthenticated order placement must be rejected with 401
+  const unauthRes = await request(app).post('/api/orders').send(orderPayload);
+  assert.equal(unauthRes.status, 401);
+  assert.equal(unauthRes.body.error, 'Please log in to complete your order.');
+
+  // 2. Register customer account to obtain valid JWT token
+  const regRes = await request(app).post('/api/users/register').send({
+    username: `jane_${Date.now()}`,
+    email: customerEmail,
+    password: 'Password123!',
+    name: 'Jane Shopper',
+    phone: '+233 24 000 1122',
+    address: '42 High Street, Accra'
+  });
+  assert.equal(regRes.status, 201);
+  const customerToken = regRes.body.token;
+  assert.ok(customerToken);
+
+  // 3. Place order with authenticated Bearer token
+  const orderRes = await request(app)
+    .post('/api/orders')
+    .set('Authorization', `Bearer ${customerToken}`)
+    .send(orderPayload);
   assert.equal(orderRes.status, 201);
   assert.ok(orderRes.body.orderId);
   assert.equal(orderRes.body.status, 'Pending');
 
-  // 2. Fetch customer orders by email
+  // 4. Fetch customer orders by email
   const userOrdersRes = await request(app).get(`/api/user/orders?email=${encodeURIComponent(customerEmail)}`);
   assert.equal(userOrdersRes.status, 200);
   assert.ok(Array.isArray(userOrdersRes.body));
@@ -101,7 +122,7 @@ test('Customer Order Placement & User Orders Retrieval', async () => {
   assert.equal(userOrdersRes.body[0].total, 90);
   assert.equal(userOrdersRes.body[0].status, 'Pending');
 
-  // 3. Fetch customer orders by string userId (e.g., usr_jane_123)
+  // 5. Fetch customer orders by string userId (e.g., usr_jane_123 or registered id)
   const userOrdersByIdRes = await request(app).get('/api/user/orders?userId=usr_jane_123');
   assert.equal(userOrdersByIdRes.status, 200);
   assert.ok(Array.isArray(userOrdersByIdRes.body));
@@ -341,48 +362,69 @@ test('Customer Account Security: Salted bcrypt hashing, authentication & legacy 
 });
 
 test('Input Boundary Validation & Rejection of Malformed Payloads', async () => {
-  // 1. Order placement with empty items array
-  const emptyItemsOrder = await request(app).post('/api/orders').send({
-    name: 'Kofi Mensah',
-    email: 'kofi@example.com',
-    phone: '+233 24 123 4567',
-    address: 'East Legon, Accra',
-    items: [],
-    total: 100
+  // Pre-authenticate customer for order boundary validation tests
+  const custReg = await request(app).post('/api/users/register').send({
+    username: `boundary_${Date.now()}`,
+    email: `boundary_${Date.now()}@example.com`,
+    password: 'Password123!',
+    name: 'Boundary Tester'
   });
+  const custToken = custReg.body.token;
+
+  // 1. Order placement with empty items array
+  const emptyItemsOrder = await request(app)
+    .post('/api/orders')
+    .set('Authorization', `Bearer ${custToken}`)
+    .send({
+      name: 'Kofi Mensah',
+      email: 'kofi@example.com',
+      phone: '+233 24 123 4567',
+      address: 'East Legon, Accra',
+      items: [],
+      total: 100
+    });
   assert.equal(emptyItemsOrder.status, 400);
 
   // 2. Order placement with non-string customer name (e.g., NoSQL injection payload)
-  const noSqlInjectionOrder = await request(app).post('/api/orders').send({
-    name: { $gt: '' },
-    email: 'kofi@example.com',
-    phone: '+233 24 123 4567',
-    address: 'East Legon, Accra',
-    items: [{ name: 'Mouse', price: 50, quantity: 1 }],
-    total: 50
-  });
+  const noSqlInjectionOrder = await request(app)
+    .post('/api/orders')
+    .set('Authorization', `Bearer ${custToken}`)
+    .send({
+      name: { $gt: '' },
+      email: 'kofi@example.com',
+      phone: '+233 24 123 4567',
+      address: 'East Legon, Accra',
+      items: [{ name: 'Mouse', price: 50, quantity: 1 }],
+      total: 50
+    });
   assert.equal(noSqlInjectionOrder.status, 400);
 
   // 3. Order placement with negative item quantity
-  const negativeQtyOrder = await request(app).post('/api/orders').send({
-    name: 'Kofi Mensah',
-    email: 'kofi@example.com',
-    phone: '+233 24 123 4567',
-    address: 'East Legon, Accra',
-    items: [{ name: 'Mouse', price: 50, quantity: -2 }],
-    total: -100
-  });
+  const negativeQtyOrder = await request(app)
+    .post('/api/orders')
+    .set('Authorization', `Bearer ${custToken}`)
+    .send({
+      name: 'Kofi Mensah',
+      email: 'kofi@example.com',
+      phone: '+233 24 123 4567',
+      address: 'East Legon, Accra',
+      items: [{ name: 'Mouse', price: 50, quantity: -2 }],
+      total: -100
+    });
   assert.equal(negativeQtyOrder.status, 400);
 
   // 4. Order placement with invalid email format
-  const badEmailOrder = await request(app).post('/api/orders').send({
-    name: 'Kofi Mensah',
-    email: 'invalid-email-address',
-    phone: '+233 24 123 4567',
-    address: 'East Legon, Accra',
-    items: [{ name: 'Mouse', price: 50, quantity: 1 }],
-    total: 50
-  });
+  const badEmailOrder = await request(app)
+    .post('/api/orders')
+    .set('Authorization', `Bearer ${custToken}`)
+    .send({
+      name: 'Kofi Mensah',
+      email: 'invalid-email-address',
+      phone: '+233 24 123 4567',
+      address: 'East Legon, Accra',
+      items: [{ name: 'Mouse', price: 50, quantity: 1 }],
+      total: 50
+    });
   assert.equal(badEmailOrder.status, 400);
 
   // 5. Admin updating order with non-whitelisted status
@@ -540,5 +582,72 @@ test('Password Reset Workflow: Token generation, expiration, anti-enumeration & 
   });
   assert.equal(reuseRes.status, 400);
   assert.equal(reuseRes.body.error, 'Token is invalid or has expired.');
+});
+
+test('Hybrid Product Catalog Decoupling & Checkout Inventory Validation', async () => {
+  // 1. GET /api/v1/products merges static catalog with dynamic metrics
+  const productsRes = await request(app).get('/api/v1/products');
+  assert.equal(productsRes.status, 200);
+  assert.ok(Array.isArray(productsRes.body), 'Response should be a merged product array');
+  assert.ok(productsRes.body.length > 0, 'Catalog should contain items');
+
+  const firstProduct = productsRes.body[0];
+  assert.ok(firstProduct.id, 'Product must contain id');
+  assert.equal(typeof firstProduct.stock, 'number', 'Product must have numeric stock');
+  assert.equal(typeof firstProduct.totalSales, 'number', 'Product must have numeric totalSales');
+  assert.equal(typeof firstProduct.inStock, 'boolean', 'Product must have boolean inStock flag');
+  assert.equal(typeof firstProduct.hasDiscount, 'boolean', 'Product must have boolean hasDiscount flag');
+  assert.equal(typeof firstProduct.discountPercentage, 'number', 'Product must have discountPercentage');
+
+  // Also verify alias GET /api/products
+  const aliasRes = await request(app).get('/api/products');
+  assert.equal(aliasRes.status, 200);
+  assert.equal(aliasRes.body.length, productsRes.body.length);
+
+  // 2. Checkout inventory validation: Attempting to order quantity > available stock returns 400 "Item is out of stock"
+  const invUserReg = await request(app).post('/api/users/register').send({
+    username: `inv_${Date.now()}`,
+    email: `inv_${Date.now()}@example.com`,
+    password: 'Password123!',
+    name: 'Inventory Tester'
+  });
+  const invToken = invUserReg.body.token;
+
+  const excessiveQuantity = (firstProduct.stock || 10) + 5;
+  const outOfStockRes = await request(app)
+    .post('/api/orders')
+    .set('Authorization', `Bearer ${invToken}`)
+    .send({
+      name: 'Inventory Tester',
+      email: 'stocktest@example.com',
+      phone: '+233 24 111 2233',
+      address: '10 Industrial Way, Accra',
+      items: [{ id: firstProduct.id, name: firstProduct.name, price: firstProduct.price, quantity: excessiveQuantity }],
+      total: firstProduct.price * excessiveQuantity
+    });
+  assert.equal(outOfStockRes.status, 400);
+  assert.equal(outOfStockRes.body.error, 'Item is out of stock');
+
+  // 3. Sufficient stock order succeeds and decrements stock
+  const currentStock = firstProduct.stock;
+  const validOrderRes = await request(app)
+    .post('/api/orders')
+    .set('Authorization', `Bearer ${invToken}`)
+    .send({
+      name: 'Inventory Tester',
+      email: 'stocktest@example.com',
+      phone: '+233 24 111 2233',
+      address: '10 Industrial Way, Accra',
+      items: [{ id: firstProduct.id, name: firstProduct.name, price: firstProduct.price, quantity: 1 }],
+      total: firstProduct.price
+    });
+  assert.equal(validOrderRes.status, 201);
+  assert.ok(validOrderRes.body.orderId);
+
+  // Verify stock was decremented
+  const updatedProductsRes = await request(app).get('/api/v1/products');
+  const updatedItem = updatedProductsRes.body.find(p => p.id === firstProduct.id);
+  assert.equal(updatedItem.stock, currentStock - 1);
+  assert.equal(updatedItem.totalSales, 1);
 });
 

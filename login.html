@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610161148" />
+  <link rel="stylesheet" href="style.css?v=v202610171527" />
 </head>
 <body>
   <header class="navbar">
@@ -114,9 +114,16 @@
 
       const hadGuestItems = guestCart.length > 0 || guestWishlist.length > 0;
 
-      function handleLocalAuthSuccess(userData, syncNote) {
+      function handleLocalAuthSuccess(userData, syncNote, token) {
         localStorage.setItem('user', JSON.stringify(userData));
         localStorage.setItem('userLoggedIn', 'true');
+        if (token) {
+          localStorage.setItem('authToken', token);
+        } else {
+          // Fallback offline session token for static host resilience
+          const fallbackToken = 'local_tok_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+          localStorage.setItem('authToken', fallbackToken);
+        }
 
         const mergedCart = (userData && Array.isArray(userData.cart)) ? userData.cart : guestCart;
         localStorage.setItem('cart', JSON.stringify({
@@ -131,10 +138,14 @@
           localStorage.setItem('syncMessage', syncNote || 'Welcome back! Your saved items have been preserved.');
         }
 
+        // Resume interrupted checkout flow if intent was recorded
+        const resumeUrl = sessionStorage.getItem('redirectAfterAuth') || 'index.html';
+        sessionStorage.removeItem('redirectAfterAuth');
+
         messageEl.textContent = 'Login successful! Redirecting...';
         messageEl.className = 'auth-message success';
         setTimeout(() => {
-          window.location.href = 'index.html';
+          window.location.href = resumeUrl;
         }, 1000);
       }
 
@@ -149,7 +160,7 @@
         
         if (response.ok) {
           const data = await response.json();
-          handleLocalAuthSuccess(data.user, hadGuestItems ? 'Welcome back! Your saved items have been synced to your account.' : null);
+          handleLocalAuthSuccess(data.user, hadGuestItems ? 'Welcome back! Your saved items have been synced to your account.' : null, data.token);
         } else if (response.status === 404 || response.status === 405) {
           // GitHub Pages static host fallback
           let localUsers = [];

@@ -14,6 +14,20 @@ try {
   nodemailer = null;
 }
 
+// Import static product catalog from ./src/assets/products.js (or fallback /src/products.js)
+let staticProducts = [];
+try {
+  const imported = require(path.resolve(__dirname, '../src/assets/products.js'));
+  staticProducts = Array.isArray(imported) ? imported : (imported.products || []);
+} catch {
+  try {
+    const fallback = require(path.resolve(__dirname, '../src/products.js'));
+    staticProducts = Array.isArray(fallback) ? fallback : (fallback.products || []);
+  } catch (err) {
+    console.warn('⚠️ Could not load static products catalog:', err.message);
+  }
+}
+
 // Load environment variables from both backend/.env and root .env
 dotenv.config({ path: path.resolve(__dirname, '.env'), override: true });
 dotenv.config({ path: path.resolve(__dirname, '..', '.env'), override: true });
@@ -30,6 +44,11 @@ app.use(express.json());
 // In-Memory Data Store (Active when MongoDB is not connected)
 const inMemory = {
   users: [],
+  products: staticProducts.map(p => ({
+    productSku: p.id,
+    stock: typeof p.stock === 'number' ? p.stock : 10,
+    totalSales: 0
+  })),
   admins: [
     {
       username: process.env.ADMIN_USERNAME || 'admin',
@@ -140,6 +159,34 @@ const contactMessageSchema = new mongoose.Schema({
 
 const ContactMessage = mongoose.model('ContactMessage', contactMessageSchema);
 
+// ========================================
+// 1. PRODUCT SCHEMA DEFINITION
+// ========================================
+// Decoupled dynamic metrics: stock levels & sales counts living in MongoDB
+const productSchema = new mongoose.Schema({
+  productSku: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    index: true
+  },
+  stock: {
+    type: Number,
+    default: 10,
+    min: [0, 'Stock cannot be negative']
+  },
+  totalSales: {
+    type: Number,
+    default: 0,
+    min: [0, 'Total sales cannot be negative']
+  }
+}, {
+  timestamps: true
+});
+
+const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
+
 let isMongoConnected = false;
 
 // Authenticate Admin Middleware
@@ -159,6 +206,26 @@ function authenticateAdmin(req, res, next) {
     next();
   } catch {
     return res.status(401).json({ error: 'Unauthorized: Session expired or invalid token' });
+  }
+}
+
+// Authenticate Customer Middleware (Requires valid customer or admin token for database-modifying actions)
+function authenticateUser(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Please log in to complete your order.' });
+  }
+
+  const token = authHeader.substring(7).trim();
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid token payload.' });
+    }
+    req.user = decoded;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Unauthorized: Session expired or invalid authentication token.' });
   }
 }
 
@@ -233,6 +300,64 @@ async function syncLegacyTestData() {
   }
 }
 
+// ========================================
+// 2. IDEMPOTENT STARTUP SYNCHRONIZATION (THE SEED ENGINE)
+// ========================================
+async function seedProducts() {
+  try {
+    if (!isMongoConnected) {
+      if (!inMemory.products || inMemory.products.length === 0) {
+        inMemory.products = staticProducts.map(item => ({
+          productSku: item.id,
+          stock: typeof item.stock === 'number' ? item.stock : 10,
+          totalSales: 0
+        }));
+      }
+      return;
+    }
+
+    const count = await Product.countDocuments();
+    if (count === 0) {
+      console.log('🌱 Product collection is empty. Seeding initial catalog metrics...');
+      const seedDocs = staticProducts.map(item => ({
+        productSku: item.id,
+        stock: typeof item.stock === 'number' ? item.stock : 10,
+        totalSales: 0
+      }));
+      if (seedDocs.length > 0) {
+        await Product.insertMany(seedDocs, { ordered: false });
+        console.log(`✅ Successfully seeded ${seedDocs.length} products into MongoDB.`);
+      }
+    } else {
+      // Collection already has data: bulkWrite to insert any new static items without modifying active stock
+      const bulkOps = staticProducts.map(item => ({
+        updateOne: {
+          filter: { productSku: item.id },
+          update: {
+            $setOnInsert: {
+              productSku: item.id,
+              stock: typeof item.stock === 'number' ? item.stock : 10,
+              totalSales: 0
+            }
+          },
+          upsert: true
+        }
+      }));
+
+      if (bulkOps.length > 0) {
+        const result = await Product.bulkWrite(bulkOps, { ordered: false });
+        if (result.upsertedCount > 0) {
+          console.log(`🔄 Bulk synchronized product catalog: ${result.upsertedCount} new products inserted.`);
+        } else {
+          console.log(`✅ Product catalog in sync: All ${staticProducts.length} static products verified in MongoDB.`);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('❌ Error in product seed engine:', err);
+  }
+}
+
 // MongoDB connection (skip when running tests or if no valid URI provided)
 if (process.env.NODE_ENV !== 'test') {
   const mongoURI = process.env.MONGODB_URI;
@@ -248,13 +373,16 @@ if (process.env.NODE_ENV !== 'test') {
         console.log(`✅ MongoDB connected to database: '${activeDb}'`);
         await syncLegacyTestData();
         await createInitialAdmin();
+        await seedProducts();
       })
       .catch((err) => {
         isMongoConnected = false;
         console.warn('⚠️ MongoDB not connected — running in-memory fallback store:', err.message);
+        seedProducts();
       });
   } else {
     console.log('ℹ️ Running with in-memory store (instant setup, no external DB required)');
+    seedProducts();
   }
 }
 
@@ -439,8 +567,14 @@ app.post('/api/users/register', async (req, res) => {
         wishlist: initialWishlist
       });
       await user.save();
+      const token = jwt.sign(
+        { id: user._id.toString(), username: user.username, email: user.email, role: 'customer' },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
       return res.status(201).json({
         message: 'User registered successfully!',
+        token,
         user: {
           id: user._id,
           username: user.username,
@@ -477,8 +611,14 @@ app.post('/api/users/register', async (req, res) => {
       createdAt: new Date().toISOString()
     };
     inMemory.users.push(newUser);
+    const token = jwt.sign(
+      { id: newUser.id, username: newUser.username, email: newUser.email, role: 'customer' },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
     return res.status(201).json({
       message: 'User registered successfully!',
+      token,
       user: {
         id: newUser.id,
         username: newUser.username,
@@ -539,8 +679,15 @@ app.post('/api/users/login', async (req, res) => {
         await user.save();
       }
 
+      const token = jwt.sign(
+        { id: user._id.toString(), username: user.username, email: user.email, role: 'customer' },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
       return res.json({
         message: 'Login successful!',
+        token,
         user: {
           id: user._id,
           username: user.username,
@@ -582,8 +729,15 @@ app.post('/api/users/login', async (req, res) => {
       user.wishlist = mergeWishlists(user.wishlist || [], guestWishlist);
     }
 
+    const token = jwt.sign(
+      { id: user.id, username: user.username, email: user.email, role: 'customer' },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
     return res.json({
       message: 'Login successful!',
+      token,
       user: {
         id: user.id,
         username: user.username,
@@ -1159,8 +1313,8 @@ app.get('/api/user/orders', async (req, res) => {
   }
 });
 
-// Place order endpoint with full boundary validation
-app.post('/api/orders', async (req, res) => {
+// Place order endpoint with full boundary validation and mandatory customer authentication
+app.post('/api/orders', authenticateUser, async (req, res) => {
   try {
     const { name, email, phone, address, items, total, userId } = req.body || {};
 
@@ -1194,16 +1348,52 @@ app.post('/api/orders', async (req, res) => {
 
     const cleanUserId = (typeof userId === 'string' && userId.trim()) ? userId.trim().substring(0, 60) : null;
 
+    // ========================================
+    // 4. INVENTORY VALIDATION CHECK (DATABASE & IN-MEMORY)
+    // ========================================
     if (isMongoConnected) {
+      for (const it of itemsValidation.items) {
+        const sku = it.id;
+        if (!sku) continue;
+        const dbProduct = await Product.findOne({ productSku: sku });
+        if (dbProduct && dbProduct.stock < it.quantity) {
+          return res.status(400).json({ error: 'Item is out of stock' });
+        }
+      }
+    } else if (inMemory.products) {
+      for (const it of itemsValidation.items) {
+        const sku = it.id;
+        if (!sku) continue;
+        const memProd = inMemory.products.find(p => p.productSku === sku);
+        if (memProd && memProd.stock < it.quantity) {
+          return res.status(400).json({ error: 'Item is out of stock' });
+        }
+      }
+    }
+
+    if (isMongoConnected) {
+      // Deduct stock using { $inc: { stock: -quantityRequested } } and update sales metrics
+      for (const it of itemsValidation.items) {
+        const sku = it.id;
+        if (!sku) continue;
+        await Product.updateOne(
+          { productSku: sku },
+          { $inc: { stock: -it.quantity, totalSales: it.quantity } }
+        );
+      }
+
+      const verifiedUserId = (req.user && req.user.id) || cleanUserId;
+      const verifiedEmail = (req.user && req.user.email) ? req.user.email.toLowerCase() : email.trim().toLowerCase();
+
       const orderData = {
         name: name.trim(),
-        email: email.trim().toLowerCase(),
+        email: verifiedEmail,
         phone: phone.trim(),
         address: address.trim(),
         items: itemsValidation.items,
         total: orderTotal
       };
-      if (cleanUserId) orderData.userId = cleanUserId;
+      if (verifiedUserId) orderData.userId = verifiedUserId;
       const order = new Order(orderData);
       await order.save();
       return res.status(201).json({ 
@@ -1214,16 +1404,31 @@ app.post('/api/orders', async (req, res) => {
     }
 
     // In-memory fallback
+    if (inMemory.products) {
+      for (const it of itemsValidation.items) {
+        const sku = it.id;
+        if (!sku) continue;
+        const memProd = inMemory.products.find(p => p.productSku === sku);
+        if (memProd) {
+          memProd.stock -= it.quantity;
+          memProd.totalSales = (memProd.totalSales || 0) + it.quantity;
+        }
+      }
+    }
+
+    const verifiedUserId = (req.user && req.user.id) || cleanUserId;
+    const verifiedEmail = (req.user && req.user.email) ? req.user.email.toLowerCase() : email.trim().toLowerCase();
+
     const newOrder = {
       _id: 'ord_' + Math.random().toString(36).substring(2, 9),
       name: name.trim(),
-      email: email.trim().toLowerCase(),
+      email: verifiedEmail,
       phone: phone.trim(),
       address: address.trim(),
       items: itemsValidation.items,
       total: orderTotal,
       status: 'Pending',
-      userId: cleanUserId,
+      userId: verifiedUserId,
       createdAt: new Date().toISOString()
     };
     inMemory.orders.unshift(newOrder);
@@ -1566,6 +1771,68 @@ app.patch('/api/admin/messages/:id/status', authenticateAdmin, async (req, res) 
   }
 });
 
+// ========================================
+// 3. CLEAN GET PRODUCTS ENDPOINT FOR THE FRONTEND (HYBRID RESOLVER)
+// ========================================
+async function handleGetProducts(req, res) {
+  try {
+    const dynamicMetricsMap = new Map();
+
+    if (isMongoConnected) {
+      const dbProducts = await Product.find({}, { productSku: 1, stock: 1, totalSales: 1, _id: 0 }).lean();
+      for (const p of dbProducts) {
+        if (p.productSku) {
+          dynamicMetricsMap.set(p.productSku, p);
+        }
+      }
+    } else if (inMemory.products && inMemory.products.length > 0) {
+      for (const p of inMemory.products) {
+        if (p.productSku) {
+          dynamicMetricsMap.set(p.productSku, p);
+        }
+      }
+    }
+
+    const mergedProducts = staticProducts.map(staticItem => {
+      const metrics = dynamicMetricsMap.get(staticItem.id) || {};
+      const stock = typeof metrics.stock === 'number' ? metrics.stock : (typeof staticItem.stock === 'number' ? staticItem.stock : 10);
+      const totalSales = typeof metrics.totalSales === 'number' ? metrics.totalSales : 0;
+      
+      const hasDiscount = Boolean(
+        staticItem.isOnSale ||
+        (staticItem.discount && staticItem.discount > 0) ||
+        (staticItem.originalPrice && staticItem.originalPrice > staticItem.price)
+      );
+      const discountPercentage = staticItem.discount || (
+        staticItem.originalPrice && staticItem.originalPrice > staticItem.price
+          ? Math.round(((staticItem.originalPrice - staticItem.price) / staticItem.originalPrice) * 100)
+          : 0
+      );
+
+      const inStock = stock > 0;
+      const isTrending = Boolean(totalSales >= 5 || staticItem.isTrending);
+
+      return {
+        ...staticItem,
+        stock,
+        totalSales,
+        inStock,
+        isTrending,
+        hasDiscount,
+        discountPercentage
+      };
+    });
+
+    res.json(mergedProducts);
+  } catch (err) {
+    console.error('Failed to retrieve hybrid product catalog:', err);
+    res.status(500).json({ error: 'Failed to retrieve product catalog' });
+  }
+}
+
+app.get('/api/v1/products', handleGetProducts);
+app.get('/api/products', handleGetProducts);
+
 // Serve static frontend files from parent directory
 app.use(express.static(rootDir, { index: false }));
 
@@ -1609,3 +1876,6 @@ if (require.main === module) {
 }
 
 module.exports = app;
+module.exports.Product = Product;
+module.exports.seedProducts = seedProducts;
+module.exports.staticProducts = staticProducts;
