@@ -2401,6 +2401,46 @@ async function handleProfileFormSubmit(e) {
   }
 }
 
+/**
+ * Securely logs out the customer by thoroughly purging all authentication
+ * credentials, session tokens, and cached customer PII (names, emails, phone numbers,
+ * delivery addresses, GPS, and draft checkout forms) while preserving cart items
+ * in guest mode for shopping continuity.
+ */
+function logoutCustomer() {
+  // 1. Purge authentication session credentials
+  localStorage.removeItem('userLoggedIn');
+  localStorage.removeItem('user');
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('localUsers');
+  localStorage.removeItem('localUserOrders');
+
+  // 2. Thoroughly purge all cached customer PII and delivery profiles
+  localStorage.removeItem('savedCustomerPhone');
+  localStorage.removeItem('savedCustomerRegion');
+  localStorage.removeItem('savedCustomerTown');
+  localStorage.removeItem('savedCustomerLandmark');
+  localStorage.removeItem('savedCustomerGps');
+  localStorage.removeItem('savedCustomerName');
+  localStorage.removeItem('savedCustomerAddress');
+
+  // 3. Purge any in-flight checkout form buffers
+  sessionStorage.removeItem('pendingCheckoutForm');
+  sessionStorage.removeItem('redirectAfterAuth');
+  sessionStorage.removeItem('justPlacedOrderId');
+
+  // 4. Cart items in localStorage 'cart' are retained as guest items per user request
+
+  // 5. Notify active components and listeners
+  try {
+    window.dispatchEvent(new CustomEvent('customer:logout'));
+  } catch (e) {}
+}
+
+if (typeof window !== 'undefined') {
+  window.logoutCustomer = logoutCustomer;
+}
+
 
 
 // ========================================

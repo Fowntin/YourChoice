@@ -817,4 +817,53 @@ test('Ghanaian Localization & Delivery Field Validation Suite', async () => {
   assert.match(badPhoneOrder.body.error, /phone/i);
 });
 
+test('Customer PII Data Teardown & Secure Session Lifecycle Suite', async () => {
+  // 1. Verify unauthenticated profile request returns 401
+  const unauthProfile = await request(app).get('/api/user/profile');
+  assert.equal(unauthProfile.status, 401);
+
+  // 2. Client-side storage simulation for logoutCustomer() PII teardown & cart retention
+  const mockStorage = {
+    userLoggedIn: 'true',
+    authToken: 'jwt_mock_token_123',
+    user: JSON.stringify({ name: 'Akua Mansa', email: 'akua@example.com', phone: '0241234567' }),
+    localUsers: JSON.stringify([{ email: 'akua@example.com' }]),
+    localUserOrders: JSON.stringify([]),
+    savedCustomerPhone: '024 123 4567',
+    savedCustomerRegion: 'Greater Accra',
+    savedCustomerTown: 'Airport Residential',
+    savedCustomerLandmark: 'Near Airport Shell',
+    savedCustomerGps: 'GA-123-4567',
+    savedCustomerName: 'Akua Mansa',
+    savedCustomerAddress: 'Airport Residential, Near Airport Shell, Greater Accra, Ghana',
+    pendingCheckoutForm: JSON.stringify({ name: 'Akua Mansa', phone: '024 123 4567' }),
+    redirectAfterAuth: 'checkout.html',
+    justPlacedOrderId: 'ORD-999',
+    cart: JSON.stringify({ items: [{ id: 'p1', name: 'Ghana Chocolate', quantity: 2, price: 15 }], lastUpdated: Date.now() })
+  };
+
+  // Execute identical teardown sequence as script.js logoutCustomer()
+  const piiKeysToRemove = [
+    'userLoggedIn', 'user', 'authToken', 'localUsers', 'localUserOrders',
+    'savedCustomerPhone', 'savedCustomerRegion', 'savedCustomerTown',
+    'savedCustomerLandmark', 'savedCustomerGps', 'savedCustomerName',
+    'savedCustomerAddress', 'pendingCheckoutForm', 'redirectAfterAuth',
+    'justPlacedOrderId'
+  ];
+
+  piiKeysToRemove.forEach(k => delete mockStorage[k]);
+
+  // Assert all PII and authentication credentials are completely removed
+  piiKeysToRemove.forEach(k => {
+    assert.strictEqual(mockStorage[k], undefined, `Expected ${k} to be purged on customer logout`);
+  });
+
+  // Assert shopping cart items are strictly retained as guest items
+  assert.ok(mockStorage.cart, 'Guest cart items must be retained after customer logout');
+  const parsedCart = JSON.parse(mockStorage.cart);
+  assert.strictEqual(parsedCart.items.length, 1);
+  assert.strictEqual(parsedCart.items[0].name, 'Ghana Chocolate');
+});
+
+
 

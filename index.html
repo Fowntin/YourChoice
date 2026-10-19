@@ -7,7 +7,7 @@
   <meta name="description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
   <meta property="og:title" content="YourChoice" />
   <meta property="og:description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
-  <link rel="stylesheet" href="style.css?v=v202610190707" />
+  <link rel="stylesheet" href="style.css?v=v202610190708" />
 </head>
 <body>
 
@@ -733,9 +733,9 @@
   </div>
 </div>
 
-  <script src="src/products.js?v=v202610190707"></script>
-  <script src="ghana-validation.js?v=v202610190707"></script>
-  <script src="script.js?v=v202610190707"></script>
+  <script src="src/products.js?v=v202610190708"></script>
+  <script src="ghana-validation.js?v=v202610190708"></script>
+  <script src="script.js?v=v202610190708"></script>
   <script>
     // Check user authentication status (unified navigation)
     function checkAuthStatus() {
@@ -774,15 +774,32 @@
       }
     }
     
-    // Handle logout
+    // Handle logout with comprehensive customer PII purge
     function handleLogout(e) {
       if (e) e.preventDefault();
-      localStorage.removeItem('userLoggedIn');
-      localStorage.removeItem('user');
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('localUsers');
+      if (typeof logoutCustomer === 'function') {
+        logoutCustomer();
+      } else {
+        localStorage.removeItem('userLoggedIn');
+        localStorage.removeItem('user');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('localUsers');
+        localStorage.removeItem('savedCustomerPhone');
+        localStorage.removeItem('savedCustomerRegion');
+        localStorage.removeItem('savedCustomerTown');
+        localStorage.removeItem('savedCustomerLandmark');
+        localStorage.removeItem('savedCustomerGps');
+        localStorage.removeItem('savedCustomerName');
+        localStorage.removeItem('savedCustomerAddress');
+        sessionStorage.removeItem('pendingCheckoutForm');
+      }
       checkAuthStatus();
-      window.location.reload();
+      if (typeof showToast === 'function') {
+        showToast('Signed out successfully. Delivery details cleared.', 'info');
+      }
+      setTimeout(() => {
+        window.location.reload();
+      }, 300);
     }
 
     const logoutLink = document.getElementById('logout-link');

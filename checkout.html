@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Checkout | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610190707" />
+  <link rel="stylesheet" href="style.css?v=v202610190708" />
 </head>
 <body>
   <header class="navbar">
@@ -201,8 +201,8 @@
     </div>
   </div>
 
-  <script src="ghana-validation.js?v=v202610190707"></script>
-  <script src="script.js?v=v202610190707"></script>
+  <script src="ghana-validation.js?v=v202610190708"></script>
+  <script src="script.js?v=v202610190708"></script>
   <script>
     // Escape helper
     function escapeHtml(str) {
@@ -287,10 +287,51 @@
       });
     }
 
-    // Auto-prefill customer details for signed-in users with authoritative profile persistence
+    // Securely clear all customer contact & delivery input fields
+    function clearCheckoutFormInputs() {
+      const nameInput = document.getElementById('customer-name');
+      const emailInput = document.getElementById('customer-email');
+      const phoneInput = document.getElementById('customer-phone');
+      const regionSelect = document.getElementById('delivery-region');
+      const townInput = document.getElementById('delivery-town');
+      const landmarkInput = document.getElementById('delivery-landmark');
+      const gpsInput = document.getElementById('delivery-gps');
+      const phoneBadge = document.getElementById('phone-network-badge');
+      const phoneError = document.getElementById('phone-error');
+      const gpsError = document.getElementById('gps-error');
+
+      if (nameInput) nameInput.value = '';
+      if (emailInput) emailInput.value = '';
+      if (phoneInput) {
+        phoneInput.value = '';
+        phoneInput.dispatchEvent(new Event('input'));
+      }
+      if (phoneBadge) phoneBadge.style.display = 'none';
+      if (phoneError) phoneError.style.display = 'none';
+      if (regionSelect) regionSelect.value = '';
+      if (townInput) townInput.value = '';
+      if (landmarkInput) landmarkInput.value = '';
+      if (gpsInput) gpsInput.value = '';
+      if (gpsError) gpsError.style.display = 'none';
+    }
+
+    // Auto-prefill customer details ONLY for authenticated sessions with authoritative profile persistence
     async function prefillCustomerDetails() {
       const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
       const authToken = localStorage.getItem('authToken');
+      const badgeEl = document.getElementById('checkout-member-badge');
+
+      // Security & Privacy Hardening: If logged out, purge form fields and display guest banner
+      if (!userLoggedIn || !authToken) {
+        clearCheckoutFormInputs();
+        if (badgeEl) {
+          badgeEl.style.display = 'flex';
+          badgeEl.className = 'checkout-member-badge guest-mode';
+          badgeEl.innerHTML = `<span>👋 Checking out as a guest. <a href="login.html?redirect=checkout.html" class="checkout-login-link">Log in to load your saved delivery profile</a></span>`;
+        }
+        return;
+      }
+
       let user = {};
       try {
         user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -305,7 +346,6 @@
       const townInput = document.getElementById('delivery-town');
       const landmarkInput = document.getElementById('delivery-landmark');
       const gpsInput = document.getElementById('delivery-gps');
-      const badgeEl = document.getElementById('checkout-member-badge');
 
       function applyValues(u) {
         if (!u || typeof u !== 'object') u = {};
@@ -348,40 +388,68 @@
           gpsInput.value = gps;
         }
 
-        if (badgeEl && userLoggedIn) {
+        if (badgeEl) {
           badgeEl.style.display = 'flex';
-          badgeEl.innerHTML = `<span>✨ Signed in as <strong>${escapeHtml(u.name || u.username || 'Member')}</strong> — saved delivery details loaded</span>`;
+          badgeEl.className = 'checkout-member-badge';
+          badgeEl.innerHTML = `
+            <span>✨ Signed in as <strong>${escapeHtml(u.name || u.username || 'Member')}</strong> — saved delivery details loaded</span>
+            <button type="button" id="checkout-signout-btn" class="checkout-signout-btn" title="Sign out of this account">Sign Out</button>
+          `;
+          const signoutBtn = document.getElementById('checkout-signout-btn');
+          if (signoutBtn) {
+            signoutBtn.onclick = () => {
+              if (typeof logoutCustomer === 'function') {
+                logoutCustomer();
+              } else {
+                localStorage.removeItem('userLoggedIn');
+                localStorage.removeItem('user');
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('localUsers');
+                localStorage.removeItem('localUserOrders');
+                localStorage.removeItem('savedCustomerPhone');
+                localStorage.removeItem('savedCustomerRegion');
+                localStorage.removeItem('savedCustomerTown');
+                localStorage.removeItem('savedCustomerLandmark');
+                localStorage.removeItem('savedCustomerGps');
+                localStorage.removeItem('savedCustomerName');
+                localStorage.removeItem('savedCustomerAddress');
+                sessionStorage.removeItem('pendingCheckoutForm');
+                sessionStorage.removeItem('redirectAfterAuth');
+                sessionStorage.removeItem('justPlacedOrderId');
+              }
+              prefillCustomerDetails();
+              if (typeof showToast === 'function') {
+                showToast('Signed out successfully. Saved delivery details cleared.', 'info');
+              }
+            };
+          }
         }
       }
 
-      // 1. Immediately prefill from local storage to prevent layout flicker
-      if (userLoggedIn || localStorage.getItem('savedCustomerPhone') || localStorage.getItem('savedCustomerRegion') || localStorage.getItem('savedCustomerTown') || localStorage.getItem('user')) {
-        applyValues(user);
-      }
+      // 1. Immediately prefill from local authenticated cache to prevent layout flicker
+      applyValues(user);
 
       // 2. Fetch authoritative profile from backend to ensure real-time persistence across sessions/devices
-      if (userLoggedIn && authToken) {
-        try {
-          const res = await fetch('/api/user/profile', {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-          });
-          if (res.ok) {
-            const freshUser = await res.json();
-            if (freshUser) {
-              user = { ...user, ...freshUser };
-              localStorage.setItem('user', JSON.stringify(user));
-              if (freshUser.phone) localStorage.setItem('savedCustomerPhone', freshUser.phone);
-              if (freshUser.deliveryRegion) localStorage.setItem('savedCustomerRegion', freshUser.deliveryRegion);
-              if (freshUser.deliveryTown) localStorage.setItem('savedCustomerTown', freshUser.deliveryTown);
-              if (freshUser.deliveryLandmark) localStorage.setItem('savedCustomerLandmark', freshUser.deliveryLandmark);
-              if (freshUser.deliveryGps) localStorage.setItem('savedCustomerGps', freshUser.deliveryGps);
-              if (freshUser.name) localStorage.setItem('savedCustomerName', freshUser.name);
-              applyValues(user);
-            }
+      try {
+        const res = await fetch('/api/user/profile', {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (res.ok) {
+          const freshUser = await res.json();
+          if (freshUser) {
+            user = { ...user, ...freshUser };
+            localStorage.setItem('user', JSON.stringify(user));
+            if (freshUser.phone) localStorage.setItem('savedCustomerPhone', freshUser.phone);
+            if (freshUser.deliveryRegion) localStorage.setItem('savedCustomerRegion', freshUser.deliveryRegion);
+            if (freshUser.deliveryTown) localStorage.setItem('savedCustomerTown', freshUser.deliveryTown);
+            if (freshUser.deliveryLandmark) localStorage.setItem('savedCustomerLandmark', freshUser.deliveryLandmark);
+            if (freshUser.deliveryGps) localStorage.setItem('savedCustomerGps', freshUser.deliveryGps);
+            if (freshUser.name) localStorage.setItem('savedCustomerName', freshUser.name);
+            applyValues(user);
           }
-        } catch (err) {
-          // Graceful fallback to cached values
         }
+      } catch (err) {
+        // Graceful fallback to cached values
       }
 
       // 3. Restore any pending form data preserved before login redirect (only filling empty fields)
@@ -447,6 +515,18 @@
     setupGpsValidation();
     loadOrderSummary();
     prefillCustomerDetails();
+
+    // Cross-tab & real-time customer session synchronization
+    window.addEventListener('storage', function(e) {
+      if (!e.key || e.key === 'userLoggedIn' || e.key === 'authToken' || e.key === 'user' || e.key.startsWith('savedCustomer')) {
+        prefillCustomerDetails();
+      }
+    });
+
+    // In-page logout synchronization
+    window.addEventListener('customer:logout', function() {
+      prefillCustomerDetails();
+    });
 
     // Handle form submission and send order to backend
     document.getElementById('checkout-form').addEventListener('submit', async function(e) {

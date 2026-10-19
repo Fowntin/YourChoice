@@ -6195,7 +6195,7 @@ body {
   color: var(--color-accent);
 }
 
-/* Checkout Member Badge */
+/* Checkout Member Badge & Guest Notice */
 .checkout-member-badge {
   background: #eff6ff;
   border: 1px solid #bfdbfe;
@@ -6204,8 +6204,51 @@ body {
   border-radius: 10px;
   margin-bottom: 1.25rem;
   font-size: 0.9rem;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
+
+.checkout-member-badge.guest-mode {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  justify-content: flex-start;
+}
+
+.checkout-login-link {
+  color: #c2410c;
+  font-weight: 600;
+  text-decoration: underline;
+  margin-left: 4px;
+  transition: color 0.15s ease;
+}
+
+.checkout-login-link:hover {
+  color: #9a3412;
+}
+
+.checkout-signout-btn {
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.checkout-signout-btn:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
 
 /* Checkout Authentication Gate */
 .checkout-auth-gate {
