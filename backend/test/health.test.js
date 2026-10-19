@@ -769,6 +769,17 @@ test('Ghanaian Localization & Delivery Field Validation Suite', async () => {
   assert.equal(profileUpdate.body.user.phoneNetwork, 'Telecel');
   assert.equal(profileUpdate.body.user.deliveryRegion, 'Ashanti');
   assert.equal(profileUpdate.body.user.deliveryTown, 'Kumasi Central');
+  assert.ok(profileUpdate.body.user.phone);
+
+  // Verify subsequent GET /api/user/profile confirms persisted phone number
+  const persistedProfile = await request(app)
+    .get('/api/user/profile')
+    .set('Authorization', `Bearer ${ghanaToken}`);
+  assert.equal(persistedProfile.status, 200);
+  assert.equal(persistedProfile.body.phoneNetwork, 'Telecel');
+  const parsedPersisted = GhanaValidation.parseGhanaPhone(persistedProfile.body.phone);
+  assert.equal(parsedPersisted.isValid, true);
+  assert.equal(parsedPersisted.network, 'Telecel');
 
   // 5. Order placement with structured delivery data
   const orderRes = await request(app)

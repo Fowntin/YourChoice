@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Checkout | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610180855" />
+  <link rel="stylesheet" href="style.css?v=v202610190707" />
 </head>
 <body>
   <header class="navbar">
@@ -201,8 +201,8 @@
     </div>
   </div>
 
-  <script src="ghana-validation.js?v=v202610180900"></script>
-  <script src="script.js?v=v202610180855"></script>
+  <script src="ghana-validation.js?v=v202610190707"></script>
+  <script src="script.js?v=v202610190707"></script>
   <script>
     // Escape helper
     function escapeHtml(str) {
@@ -287,15 +287,16 @@
       });
     }
 
-    // Auto-prefill customer details for signed-in users
-    function prefillCustomerDetails() {
+    // Auto-prefill customer details for signed-in users with authoritative profile persistence
+    async function prefillCustomerDetails() {
       const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const savedPhone = localStorage.getItem('savedCustomerPhone') || user.phone || '';
-      const savedRegion = localStorage.getItem('savedCustomerRegion') || user.deliveryRegion || '';
-      const savedTown = localStorage.getItem('savedCustomerTown') || user.deliveryTown || '';
-      const savedLandmark = localStorage.getItem('savedCustomerLandmark') || user.deliveryLandmark || '';
-      const savedGps = localStorage.getItem('savedCustomerGps') || user.deliveryGps || '';
+      const authToken = localStorage.getItem('authToken');
+      let user = {};
+      try {
+        user = JSON.parse(localStorage.getItem('user') || '{}');
+      } catch (e) {
+        user = {};
+      }
 
       const nameInput = document.getElementById('customer-name');
       const emailInput = document.getElementById('customer-email');
@@ -306,41 +307,99 @@
       const gpsInput = document.getElementById('delivery-gps');
       const badgeEl = document.getElementById('checkout-member-badge');
 
-      if (userLoggedIn && (user.name || user.email || user.username)) {
-        if (nameInput && !nameInput.value) nameInput.value = user.name || user.username || '';
-        if (emailInput && !emailInput.value) emailInput.value = user.email || '';
-        if (phoneInput && !phoneInput.value && savedPhone) phoneInput.value = savedPhone;
-        if (regionSelect && !regionSelect.value && savedRegion) regionSelect.value = savedRegion;
-        if (townInput && !townInput.value && savedTown) townInput.value = savedTown;
-        if (landmarkInput && !landmarkInput.value && savedLandmark) landmarkInput.value = savedLandmark;
-        if (gpsInput && !gpsInput.value && savedGps) gpsInput.value = savedGps;
+      function applyValues(u) {
+        if (!u || typeof u !== 'object') u = {};
+        // Authenticated profile values take absolute priority over fallback guest caches
+        const rawPhone = (u.phone || u.phoneNumber || u.telephone || u.phoneVal || localStorage.getItem('savedCustomerPhone') || '').trim();
+        const region = (u.deliveryRegion || localStorage.getItem('savedCustomerRegion') || '').trim();
+        const town = (u.deliveryTown || localStorage.getItem('savedCustomerTown') || '').trim();
+        const landmark = (u.deliveryLandmark || localStorage.getItem('savedCustomerLandmark') || '').trim();
+        const gps = (u.deliveryGps || localStorage.getItem('savedCustomerGps') || '').trim();
 
-        if (phoneInput && phoneInput.value) {
+        if (nameInput && (!nameInput.value || nameInput.value.trim() === '')) {
+          nameInput.value = u.name || u.username || localStorage.getItem('savedCustomerName') || '';
+        }
+        if (emailInput && (!emailInput.value || emailInput.value.trim() === '')) {
+          emailInput.value = u.email || '';
+        }
+
+        if (phoneInput && rawPhone) {
+          let displayPhone = rawPhone;
+          if (window.GhanaValidation) {
+            const parsed = GhanaValidation.parseGhanaPhone(rawPhone);
+            if (parsed.isValid && parsed.formatted) {
+              displayPhone = parsed.formatted;
+            }
+          }
+          phoneInput.value = displayPhone;
           phoneInput.dispatchEvent(new Event('input'));
         }
 
-        if (badgeEl) {
+        if (regionSelect && region) {
+          regionSelect.value = region;
+        }
+        if (townInput && town) {
+          townInput.value = town;
+        }
+        if (landmarkInput && landmark) {
+          landmarkInput.value = landmark;
+        }
+        if (gpsInput && gps) {
+          gpsInput.value = gps;
+        }
+
+        if (badgeEl && userLoggedIn) {
           badgeEl.style.display = 'flex';
-          badgeEl.innerHTML = `<span>✨ Signed in as <strong>${escapeHtml(user.name || user.username || 'Member')}</strong> — saved delivery details loaded</span>`;
+          badgeEl.innerHTML = `<span>✨ Signed in as <strong>${escapeHtml(u.name || u.username || 'Member')}</strong> — saved delivery details loaded</span>`;
         }
       }
 
-      // Restore any pending form data preserved before login redirect
+      // 1. Immediately prefill from local storage to prevent layout flicker
+      if (userLoggedIn || localStorage.getItem('savedCustomerPhone') || localStorage.getItem('savedCustomerRegion') || localStorage.getItem('savedCustomerTown') || localStorage.getItem('user')) {
+        applyValues(user);
+      }
+
+      // 2. Fetch authoritative profile from backend to ensure real-time persistence across sessions/devices
+      if (userLoggedIn && authToken) {
+        try {
+          const res = await fetch('/api/user/profile', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+          });
+          if (res.ok) {
+            const freshUser = await res.json();
+            if (freshUser) {
+              user = { ...user, ...freshUser };
+              localStorage.setItem('user', JSON.stringify(user));
+              if (freshUser.phone) localStorage.setItem('savedCustomerPhone', freshUser.phone);
+              if (freshUser.deliveryRegion) localStorage.setItem('savedCustomerRegion', freshUser.deliveryRegion);
+              if (freshUser.deliveryTown) localStorage.setItem('savedCustomerTown', freshUser.deliveryTown);
+              if (freshUser.deliveryLandmark) localStorage.setItem('savedCustomerLandmark', freshUser.deliveryLandmark);
+              if (freshUser.deliveryGps) localStorage.setItem('savedCustomerGps', freshUser.deliveryGps);
+              if (freshUser.name) localStorage.setItem('savedCustomerName', freshUser.name);
+              applyValues(user);
+            }
+          }
+        } catch (err) {
+          // Graceful fallback to cached values
+        }
+      }
+
+      // 3. Restore any pending form data preserved before login redirect (only filling empty fields)
       try {
         const pendingRaw = sessionStorage.getItem('pendingCheckoutForm');
         if (pendingRaw) {
           const pending = JSON.parse(pendingRaw);
           if (pending.name && nameInput && !nameInput.value) nameInput.value = pending.name;
           if (pending.email && emailInput && !emailInput.value) emailInput.value = pending.email;
-          if (pending.phone && phoneInput && !phoneInput.value) phoneInput.value = pending.phone;
+          if (pending.phone && phoneInput && !phoneInput.value) {
+            phoneInput.value = pending.phone;
+            phoneInput.dispatchEvent(new Event('input'));
+          }
           if (pending.deliveryRegion && regionSelect && !regionSelect.value) regionSelect.value = pending.deliveryRegion;
           if (pending.deliveryTown && townInput && !townInput.value) townInput.value = pending.deliveryTown;
           if (pending.deliveryLandmark && landmarkInput && !landmarkInput.value) landmarkInput.value = pending.deliveryLandmark;
           if (pending.deliveryGps && gpsInput && !gpsInput.value) gpsInput.value = pending.deliveryGps;
           
-          if (phoneInput && phoneInput.value) {
-            phoneInput.dispatchEvent(new Event('input'));
-          }
           sessionStorage.removeItem('pendingCheckoutForm');
         }
       } catch (err) {
@@ -526,6 +585,21 @@
           if (orderData.deliveryLandmark) localStorage.setItem('savedCustomerLandmark', orderData.deliveryLandmark);
           if (orderData.deliveryGps) localStorage.setItem('savedCustomerGps', orderData.deliveryGps);
           if (orderData.address) localStorage.setItem('savedCustomerAddress', orderData.address);
+          
+          // Also keep user object in sync with latest order contact details
+          try {
+            const currentU = JSON.parse(localStorage.getItem('user') || '{}');
+            if (currentU && typeof currentU === 'object') {
+              if (orderData.phone) currentU.phone = orderData.phone;
+              if (orderData.deliveryRegion) currentU.deliveryRegion = orderData.deliveryRegion;
+              if (orderData.deliveryTown) currentU.deliveryTown = orderData.deliveryTown;
+              if (orderData.deliveryLandmark) currentU.deliveryLandmark = orderData.deliveryLandmark;
+              if (orderData.deliveryGps) currentU.deliveryGps = orderData.deliveryGps;
+              if (orderData.address) currentU.address = orderData.address;
+              localStorage.setItem('user', JSON.stringify(currentU));
+            }
+          } catch (e) {}
+
           if (data && data.orderId) sessionStorage.setItem('justPlacedOrderId', data.orderId);
 
           showToast('Order placed successfully! Redirecting...', 'success');

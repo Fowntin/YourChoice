@@ -2139,13 +2139,21 @@ async function openUserProfileModal() {
     msgEl.textContent = '';
   }
 
-  if (nameInput) nameInput.value = user.name || user.username || '';
+  if (nameInput) nameInput.value = user.name || user.username || localStorage.getItem('savedCustomerName') || '';
   if (emailInput) emailInput.value = user.email || '';
-  if (phoneInput) phoneInput.value = user.phone || '';
-  if (regionSelect) regionSelect.value = user.deliveryRegion || '';
-  if (townInput) townInput.value = user.deliveryTown || '';
-  if (landmarkInput) landmarkInput.value = user.deliveryLandmark || '';
-  if (gpsInput) gpsInput.value = user.deliveryGps || '';
+  if (phoneInput) {
+    const rawP = user.phone || localStorage.getItem('savedCustomerPhone') || '';
+    if (window.GhanaValidation && rawP) {
+      const parsed = GhanaValidation.parseGhanaPhone(rawP);
+      phoneInput.value = (parsed.isValid && parsed.formatted) ? parsed.formatted : rawP;
+    } else {
+      phoneInput.value = rawP;
+    }
+  }
+  if (regionSelect) regionSelect.value = user.deliveryRegion || localStorage.getItem('savedCustomerRegion') || '';
+  if (townInput) townInput.value = user.deliveryTown || localStorage.getItem('savedCustomerTown') || '';
+  if (landmarkInput) landmarkInput.value = user.deliveryLandmark || localStorage.getItem('savedCustomerLandmark') || '';
+  if (gpsInput) gpsInput.value = user.deliveryGps || localStorage.getItem('savedCustomerGps') || '';
 
   if (phoneInput && phoneInput.value) {
     phoneInput.dispatchEvent(new Event('input'));
@@ -2166,7 +2174,14 @@ async function openUserProfileModal() {
         if (freshUser) {
           if (nameInput) nameInput.value = freshUser.name || nameInput.value;
           if (emailInput) emailInput.value = freshUser.email || emailInput.value;
-          if (phoneInput && freshUser.phone) phoneInput.value = freshUser.phone;
+          if (phoneInput && freshUser.phone) {
+            let pVal = freshUser.phone;
+            if (window.GhanaValidation) {
+              const parsed = GhanaValidation.parseGhanaPhone(freshUser.phone);
+              if (parsed.isValid && parsed.formatted) pVal = parsed.formatted;
+            }
+            phoneInput.value = pVal;
+          }
           if (regionSelect && freshUser.deliveryRegion) regionSelect.value = freshUser.deliveryRegion;
           if (townInput && freshUser.deliveryTown) townInput.value = freshUser.deliveryTown;
           if (landmarkInput && freshUser.deliveryLandmark) landmarkInput.value = freshUser.deliveryLandmark;
@@ -2178,6 +2193,12 @@ async function openUserProfileModal() {
 
           const merged = { ...user, ...freshUser };
           localStorage.setItem('user', JSON.stringify(merged));
+          if (freshUser.phone) localStorage.setItem('savedCustomerPhone', freshUser.phone);
+          if (freshUser.deliveryRegion) localStorage.setItem('savedCustomerRegion', freshUser.deliveryRegion);
+          if (freshUser.deliveryTown) localStorage.setItem('savedCustomerTown', freshUser.deliveryTown);
+          if (freshUser.deliveryLandmark) localStorage.setItem('savedCustomerLandmark', freshUser.deliveryLandmark);
+          if (freshUser.deliveryGps) localStorage.setItem('savedCustomerGps', freshUser.deliveryGps);
+          if (freshUser.name) localStorage.setItem('savedCustomerName', freshUser.name);
         }
       }
     } catch (err) {
@@ -2323,11 +2344,12 @@ async function handleProfileFormSubmit(e) {
         currentUser = JSON.parse(localStorage.getItem('user') || '{}');
       } catch (e) {}
 
+      const resolvedPhone = phoneValidation.formatted || phoneValidation.localFormat || phoneVal;
       const updatedUser = {
         ...currentUser,
         ...(data.user || {}),
         name: nameVal,
-        phone: phoneValidation.localFormat || phoneVal,
+        phone: resolvedPhone,
         phoneNetwork: phoneValidation.network || null,
         deliveryRegion: regionVal,
         deliveryTown: townVal,
@@ -2336,6 +2358,15 @@ async function handleProfileFormSubmit(e) {
         address: addrRes.values.formattedAddress
       };
       localStorage.setItem('user', JSON.stringify(updatedUser));
+
+      // Authoritative persistence for checkout and multi-session retrieval
+      if (resolvedPhone) localStorage.setItem('savedCustomerPhone', resolvedPhone);
+      if (regionVal) localStorage.setItem('savedCustomerRegion', regionVal);
+      if (townVal) localStorage.setItem('savedCustomerTown', townVal);
+      if (landmarkVal) localStorage.setItem('savedCustomerLandmark', landmarkVal);
+      if (gpsVal) localStorage.setItem('savedCustomerGps', gpsVal);
+      if (nameVal) localStorage.setItem('savedCustomerName', nameVal);
+      if (addrRes.values.formattedAddress) localStorage.setItem('savedCustomerAddress', addrRes.values.formattedAddress);
 
       const userNameEl = document.getElementById('user-name');
       const drawerUserNameEl = document.getElementById('drawer-user-name');

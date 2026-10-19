@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610180831" />
+  <link rel="stylesheet" href="style.css?v=v202610190707" />
 </head>
 <body>
   <header class="navbar">
@@ -161,6 +161,17 @@
         localStorage.setItem('userLoggedIn', 'true');
         if (token) {
           localStorage.setItem('authToken', token);
+        }
+
+        // Keep saved customer details ready for frictionless checkout
+        if (userData && typeof userData === 'object') {
+          if (userData.phone) localStorage.setItem('savedCustomerPhone', userData.phone);
+          if (userData.deliveryRegion) localStorage.setItem('savedCustomerRegion', userData.deliveryRegion);
+          if (userData.deliveryTown) localStorage.setItem('savedCustomerTown', userData.deliveryTown);
+          if (userData.deliveryLandmark) localStorage.setItem('savedCustomerLandmark', userData.deliveryLandmark);
+          if (userData.deliveryGps) localStorage.setItem('savedCustomerGps', userData.deliveryGps);
+          if (userData.name) localStorage.setItem('savedCustomerName', userData.name);
+          if (userData.address) localStorage.setItem('savedCustomerAddress', userData.address);
         }
 
         const mergedCart = (userData && Array.isArray(userData.cart)) ? userData.cart : guestCart;

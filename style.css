@@ -2001,7 +2001,7 @@ body.drawer-open {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  margin: 0;
 }
 
 .drawer-btn {
@@ -2103,28 +2103,183 @@ aside#mobile-nav-drawer .drawer-register-btn:focus-visible,
   background-color: #e0e0e0;
 }
 
-.drawer-btn-logout {
+/* ========================================================
+   Mobile Nav Drawer Footer - Selected Elements & User State
+   ======================================================== */
+
+/* CSS selector 1: aside#mobile-nav-drawer:nth-of-type(1) > div:nth-of-type(3) */
+aside#mobile-nav-drawer:nth-of-type(1) > div:nth-of-type(3),
+aside#mobile-nav-drawer .drawer-footer {
+  padding: 1.15rem 1.15rem calc(1.15rem + env(safe-area-inset-bottom, 16px));
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-sizing: border-box;
+}
+
+/* Drawer User Info Container */
+aside#mobile-nav-drawer .drawer-user-info,
+.drawer-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
   width: 100%;
-  background-color: #fee;
-  color: #d32f2f;
-  margin-top: 0.5rem;
+  margin: 0;
 }
 
-.drawer-user-badge {
-  background: #fff;
-  border: 1px solid #eee;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  margin-bottom: 0.75rem;
-  font-size: 0.9rem;
-  color: #666;
+/* Polished User Greeting Badge */
+aside#mobile-nav-drawer .drawer-user-info .user-greeting,
+.drawer-user-info .user-greeting {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  box-sizing: border-box;
 }
 
-.drawer-user-badge strong {
-  display: block;
-  font-size: 1rem;
-  color: #222;
-  margin-top: 2px;
+.user-greeting-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #fff7ed;
+  color: var(--color-accent, #ff6f00);
+  border: 1px solid #fed7aa;
+  flex-shrink: 0;
+}
+
+.user-greeting-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.user-greeting-text .greeting-label {
+  font-size: 0.72rem;
+  color: #6b7280;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.user-greeting-text .greeting-name {
+  font-size: 0.92rem;
+  color: #111827;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* CSS selector 2: aside#mobile-nav-drawer:nth-of-type(1) > div:nth-of-type(3) > div#drawer-user-info:nth-of-type(2) > button#drawer-profile-btn:nth-of-type(1) */
+aside#mobile-nav-drawer:nth-of-type(1) > div:nth-of-type(3) > div#drawer-user-info:nth-of-type(2) > button#drawer-profile-btn:nth-of-type(1),
+aside#mobile-nav-drawer #drawer-profile-btn,
+button#drawer-profile-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.55rem !important;
+  width: 100% !important;
+  min-height: 48px !important;
+  padding: 0.75rem 1.15rem !important;
+  background: linear-gradient(135deg, #ff6f00 0%, #ea580c 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid #c2410c !important;
+  border-radius: 10px !important;
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  box-shadow: 0 3px 8px rgba(234, 88, 12, 0.32), 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, box-shadow 0.15s ease, opacity 0.15s ease !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+}
+
+aside#mobile-nav-drawer #drawer-profile-btn:hover,
+button#drawer-profile-btn:hover {
+  background: linear-gradient(135deg, #f97316 0%, #c2410c 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.4), 0 2px 4px rgba(0, 0, 0, 0.08) !important;
+  transform: translateY(-1px);
+}
+
+aside#mobile-nav-drawer #drawer-profile-btn:active,
+button#drawer-profile-btn:active {
+  transform: scale(0.985);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15) !important;
+}
+
+aside#mobile-nav-drawer #drawer-profile-btn:focus-visible,
+button#drawer-profile-btn:focus-visible {
+  outline: 2px solid #ff6f00 !important;
+  outline-offset: 2px !important;
+}
+
+/* CSS selector 3: aside#mobile-nav-drawer:nth-of-type(1) > div:nth-of-type(3) > div#drawer-user-info:nth-of-type(2) > button#drawer-logout-link:nth-of-type(2) */
+aside#mobile-nav-drawer:nth-of-type(1) > div:nth-of-type(3) > div#drawer-user-info:nth-of-type(2) > button#drawer-logout-link:nth-of-type(2),
+aside#mobile-nav-drawer #drawer-logout-link,
+button#drawer-logout-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  width: 100% !important;
+  min-height: 46px !important;
+  padding: 0.65rem 1.15rem !important;
+  background-color: #f9fafb !important;
+  color: #4b5563 !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 10px !important;
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+}
+
+aside#mobile-nav-drawer #drawer-logout-link:hover,
+button#drawer-logout-link:hover {
+  background-color: #fef2f2 !important;
+  color: #dc2626 !important;
+  border-color: #fecaca !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(220, 38, 38, 0.1) !important;
+}
+
+aside#mobile-nav-drawer #drawer-logout-link:active,
+button#drawer-logout-link:active {
+  background-color: #fee2e2 !important;
+  color: #b91c1c !important;
+  transform: scale(0.985);
+  box-shadow: none !important;
+}
+
+aside#mobile-nav-drawer #drawer-logout-link:focus-visible,
+button#drawer-logout-link:focus-visible {
+  outline: 2px solid #dc2626 !important;
+  outline-offset: 2px !important;
 }
 
 .drawer-admin-link {
