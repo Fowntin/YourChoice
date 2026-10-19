@@ -894,10 +894,15 @@ function setupMobileMenu() {
     }
   });
 
-  window.addEventListener('resize', () => {
+  function handleScreenShift() {
     if (window.innerWidth >= 1024) {
       closeMobileDrawer();
     }
+  }
+
+  window.addEventListener('resize', handleScreenShift);
+  window.addEventListener('orientationchange', () => {
+    setTimeout(handleScreenShift, 100);
   });
 }
 

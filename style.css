@@ -232,7 +232,8 @@ header:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1) > li > button:foc
 
 /* Nav Badges (Cart & Wishlist Count) */
 .nav-link .cart-count,
-.nav-link .nav-badge {
+.nav-link .nav-badge,
+.nav-badge {
   background: var(--color-accent);
   color: #ffffff;
   border-radius: var(--radius-sm);
@@ -5687,46 +5688,405 @@ body {
    SIGNED-IN CUSTOMER FEATURES (WISHLIST, ORDERS, BADGES)
    ======================================== */
 
-/* User Navbar Group */
+/* ========================================
+   SIGNED-IN CUSTOMER NAVBAR CONTROLS
+   (Greeting Chip, Delivery Profile Pill, Logout Action)
+   Unified Account Hub with Best-Practice Responsive Ergonomics
+   ======================================== */
+
 .user-nav-group {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.55rem;
+  margin-left: 0.65rem;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--border-medium, #e2e8f0);
+  flex-shrink: 0;
+  white-space: nowrap;
+  box-sizing: border-box;
 }
 
-.nav-icon-link {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: #334155;
-  cursor: pointer;
+/* 1. Customer Greeting Chip */
+.user-greeting-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  transition: all 0.2s ease;
-  min-height: 34px;
-}
-
-.nav-icon-link:hover {
-  background: #ffffff;
-  border-color: #cbd5e1;
-  color: #0f172a;
-}
-
-.nav-badge {
-  background: var(--color-accent);
-  color: #ffffff;
+  gap: 0.5rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
-  padding: 0.1rem 0.45rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  min-width: 18px;
-  text-align: center;
+  padding: 0.35rem 0.75rem 0.35rem 0.55rem;
+  min-height: 38px;
+  height: 38px;
+  box-sizing: border-box;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02);
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
 }
 
+.user-greeting-chip:hover {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
+}
+
+.user-nav-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+.user-greeting-chip:hover .user-nav-avatar {
+  transform: scale(1.05);
+}
+
+/* Active session live status dot */
+.user-status-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 7px;
+  height: 7px;
+  background-color: #10b981;
+  border: 1.5px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2);
+}
+
+.user-greeting-text {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  font-size: 0.88rem;
+  line-height: 1.2;
+}
+
+.user-greeting-prefix {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.user-greeting-name {
+  color: var(--color-text-primary, #0f172a);
+  font-weight: 700;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: bottom;
+  letter-spacing: -0.015em;
+}
+
+/* 2. Delivery Profile Action Button */
+.nav-profile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.86rem;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: -0.01em;
+  padding: 0.35rem 0.85rem;
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 38px;
+  height: 38px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  box-shadow: 0 1px 2px rgba(146, 64, 14, 0.05);
+}
+
+.nav-profile-btn svg {
+  flex-shrink: 0;
+  color: #ea580c;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.nav-profile-btn:hover {
+  background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
+  border-color: #f59e0b;
+  color: #78350f;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(234, 88, 12, 0.12);
+}
+
+.nav-profile-btn:hover svg {
+  transform: translateY(-1px) scale(1.12);
+}
+
+.nav-profile-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.nav-profile-btn:focus-visible {
+  outline: 2px solid #ea580c;
+  outline-offset: 2px;
+}
+
+.nav-profile-label-full {
+  display: inline;
+}
+
+.nav-profile-label-short {
+  display: none;
+}
+
+/* 3. Logout Action Button */
+.nav-logout-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.4rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 0.86rem;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: -0.01em;
+  padding: 0.35rem 0.85rem;
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 38px;
+  height: 38px;
+  box-sizing: border-box;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  min-width: max-content !important;
+  align-self: center !important;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.nav-logout-btn svg {
+  flex-shrink: 0;
+  color: #64748b;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease;
+}
+
+.nav-logout-btn:hover {
+  background-color: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(220, 38, 38, 0.1);
+}
+
+.nav-logout-btn:hover svg {
+  color: #dc2626;
+  transform: translateX(2px);
+}
+
+.nav-logout-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.nav-logout-btn:focus-visible {
+  outline: 2px solid #ef4444;
+  outline-offset: 2px;
+}
+
+/* ========================================
+   ROTATED TABLET LANDSCAPE & COMPACT DESKTOP (1024px to 1279px)
+   Prevents any overflow, stretching, or hiding under margins
+   ======================================== */
+@media screen and (min-width: 1024px) and (max-width: 1279px),
+       screen and (max-width: 1279px) and (orientation: landscape) and (min-width: 769px) {
+  .navbar {
+    padding: 0.55rem clamp(0.75rem, 1.8vw, 1.25rem);
+    box-sizing: border-box;
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  .logo {
+    font-size: 1.35rem;
+    flex-shrink: 0;
+  }
+
+  .site-nav {
+    gap: 0.5rem;
+    max-width: calc(100% - 135px);
+  }
+
+  .site-nav .nav-links {
+    gap: clamp(0.15rem, 0.4vw, 0.35rem);
+    align-items: center;
+  }
+
+  .site-nav .nav-link {
+    padding: 0.35rem 0.52rem;
+    font-size: 0.84rem;
+    gap: 0.3rem;
+  }
+
+  .nav-link .cart-count,
+  .nav-link .nav-badge,
+  .nav-badge {
+    min-width: 18px;
+    height: 18px;
+    font-size: 0.68rem;
+    padding: 0 4px;
+  }
+
+  .user-nav-group {
+    margin-left: 0.35rem;
+    padding-left: 0.45rem;
+    gap: 0.35rem;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+
+  .user-greeting-chip {
+    padding: 0.25rem 0.55rem 0.25rem 0.45rem;
+    min-height: 34px;
+    height: 34px;
+    gap: 0.4rem;
+  }
+
+  .user-nav-avatar {
+    width: 22px;
+    height: 22px;
+  }
+
+  .user-greeting-text {
+    font-size: 0.82rem;
+  }
+
+  .user-greeting-name {
+    max-width: clamp(65px, 8vw, 95px);
+  }
+
+  .nav-profile-btn {
+    min-height: 34px;
+    height: 34px;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.82rem;
+    gap: 0.35rem;
+    flex-shrink: 0 !important;
+  }
+
+  /* Show concise 'Profile' text on rotated tablet to guarantee perfect fit */
+  .nav-profile-label-full {
+    display: none !important;
+  }
+
+  .nav-profile-label-short {
+    display: inline !important;
+  }
+
+  .nav-logout-btn {
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 0.35rem 0.65rem !important;
+    font-size: 0.82rem !important;
+    gap: 0.35rem !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    min-width: max-content !important;
+    align-self: center !important;
+  }
+}
+
+/* ========================================
+   WIDE & STRETCHED SCREEN ENHANCEMENTS (>= 1440px)
+   Commanding presence, tactile targets, and max-width anchoring
+   ======================================== */
+@media screen and (min-width: 1440px) {
+  .navbar {
+    padding: 0.85rem clamp(2rem, 3.5vw, 3.5rem);
+  }
+
+  .user-nav-group {
+    gap: 0.75rem;
+    margin-left: 1.25rem;
+    padding-left: 1.25rem;
+  }
+
+  .user-greeting-chip {
+    min-height: 40px;
+    height: 40px;
+    padding: 0.4rem 0.95rem 0.4rem 0.65rem;
+  }
+
+  .user-nav-avatar {
+    width: 26px;
+    height: 26px;
+  }
+
+  .user-greeting-name {
+    max-width: 200px;
+    font-size: 0.92rem;
+  }
+
+  .nav-profile-btn,
+  .nav-logout-btn {
+    min-height: 40px;
+    height: 40px;
+    padding: 0.45rem 1rem;
+    font-size: 0.88rem;
+    border-radius: 11px;
+  }
+}
+
+/* Ultra-wide Screen Enhancements (>= 1920px) */
+@media screen and (min-width: 1920px) {
+  .navbar {
+    padding: 1rem clamp(3rem, 5vw, 5rem);
+  }
+
+  .user-nav-group {
+    gap: 0.85rem;
+    margin-left: 1.5rem;
+    padding-left: 1.5rem;
+  }
+
+  .user-greeting-name {
+    max-width: 260px;
+    font-size: 0.95rem;
+  }
+
+  .user-greeting-chip {
+    min-height: 42px;
+    height: 42px;
+    padding: 0.45rem 1.1rem 0.45rem 0.75rem;
+  }
+
+  .nav-profile-btn,
+  .nav-logout-btn {
+    min-height: 42px;
+    height: 42px;
+    padding: 0.5rem 1.15rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Backward-compatibility fallbacks */
 .user-greeting {
   font-size: 0.88rem;
   color: #475569;
@@ -5740,6 +6100,7 @@ body {
   color: #ef4444;
   font-size: 0.85rem;
   text-decoration: underline;
+  cursor: pointer;
 }
 
 .logout-text-link:hover {

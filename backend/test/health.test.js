@@ -865,5 +865,36 @@ test('Customer PII Data Teardown & Secure Session Lifecycle Suite', async () => 
   assert.strictEqual(parsedCart.items[0].name, 'Ghana Chocolate');
 });
 
+test('Navbar Customer Controls: Desktop Aesthetics & Rotated Tablet Responsiveness Suite', async () => {
+  const fs = await import('fs');
+  const path = await import('path');
+
+  const indexHtml = fs.readFileSync(path.join(__dirname, '../../index.html'), 'utf8');
+  const styleCss = fs.readFileSync(path.join(__dirname, '../../style.css'), 'utf8');
+
+  // 1. Verify index.html contains the refined user controls with responsive label spans & active status dot
+  assert.match(indexHtml, /class="user-status-dot"/, 'Must contain active session presence indicator');
+  assert.match(indexHtml, /class="nav-profile-label-full"/, 'Must contain full label for delivery profile on desktop');
+  assert.match(indexHtml, /class="nav-profile-label-short"/, 'Must contain compact label for delivery profile on tablet');
+  assert.match(indexHtml, /id="logout-link"\s+class="nav-logout-btn"/, 'Must contain accessible logout button with proper class');
+
+  // 2. Verify style.css defines the unified customer controls with best-practice styling
+  assert.match(styleCss, /\.user-nav-group\s*\{[^}]*box-sizing:\s*border-box/, 'user-nav-group must enforce border-box');
+  assert.match(styleCss, /\.user-greeting-chip\s*\{[^}]*height:\s*38px/, 'user-greeting-chip must have calibrated 38px baseline height');
+  assert.match(styleCss, /\.nav-profile-btn\s*\{[^}]*height:\s*38px/, 'nav-profile-btn must align with 38px height');
+  assert.match(styleCss, /\.nav-logout-btn\s*\{[^}]*flex-shrink:\s*0\s*!important/, 'nav-logout-btn must never shrink or distort');
+  assert.match(styleCss, /\.nav-logout-btn\s*\{[^}]*white-space:\s*nowrap\s*!important/, 'nav-logout-btn must never wrap');
+
+  // 3. Verify rotated tablet landscape rules (1024px to 1279px and orientation: landscape)
+  assert.match(styleCss, /@media screen and \(min-width:\s*1024px\)\s*and\s*\(max-width:\s*1279px\)/, 'Must have rotated tablet media query');
+  assert.match(styleCss, /orientation:\s*landscape/, 'Must have landscape orientation rules for rotated tablets');
+  assert.match(styleCss, /\.nav-profile-label-full\s*\{[^}]*display:\s*none\s*!important/, 'Full profile label must be hidden on compact tablet to save width');
+  assert.match(styleCss, /\.nav-profile-label-short\s*\{[^}]*display:\s*inline\s*!important/, 'Short profile label must be shown on compact tablet');
+
+  // 4. Verify wide & stretched display rules (>= 1440px and >= 1920px)
+  assert.match(styleCss, /@media screen and \(min-width:\s*1440px\)/, 'Must have wide display enhancement query (>= 1440px)');
+  assert.match(styleCss, /@media screen and \(min-width:\s*1920px\)/, 'Must have ultra-wide display enhancement query (>= 1920px)');
+});
+
 
 
