@@ -7,7 +7,7 @@
   <meta name="description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
   <meta property="og:title" content="YourChoice" />
   <meta property="og:description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
-  <link rel="stylesheet" href="style.css?v=v202610190852" />
+  <link rel="stylesheet" href="style.css?v=v202610191004" />
 </head>
 <body>
 
@@ -759,9 +759,160 @@
   </div>
 </div>
 
-  <script src="src/products.js?v=v202610190852"></script>
-  <script src="ghana-validation.js?v=v202610190852"></script>
-  <script src="script.js?v=v202610190852"></script>
+<!-- ========================================== -->
+<!-- PRODUCT QUICK-VIEW DETAIL MODAL            -->
+<!-- ========================================== -->
+<div id="product-detail-modal" class="product-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-product-title" style="display: none;">
+  <div class="product-modal-backdrop-dismiss" onclick="closeProductDetailModal()"></div>
+  <div class="product-modal-container" role="document">
+    <!-- Drag indicator handle for bottom-sheet view -->
+    <div class="product-modal-drag-handle" aria-hidden="true" onclick="closeProductDetailModal()">
+      <span class="drag-bar"></span>
+    </div>
+
+    <button type="button" id="close-product-modal-btn" class="product-modal-close" onclick="closeProductDetailModal()" aria-label="Close product details">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="18" x2="18" y2="18"></line>
+      </svg>
+    </button>
+
+    <!-- Scrollable Main Content Body -->
+    <div class="product-modal-scroll-body" id="modal-scroll-body">
+      <div class="product-modal-grid">
+        <!-- Left Column: Swipeable Hero Gallery -->
+        <div class="product-modal-gallery">
+          <div class="product-modal-hero-carousel-wrap" id="modal-hero-carousel-wrap">
+            <div class="product-modal-main-image-wrap" id="modal-main-image-wrap">
+              <img id="modal-product-main-img" src="" alt="Product image preview" loading="eager" />
+              <div id="modal-product-badges" class="product-modal-badge-overlay"></div>
+              
+              <!-- Carousel swipe indicator dots -->
+              <div id="modal-carousel-dots" class="modal-carousel-dots" aria-hidden="true"></div>
+
+              <!-- Prev/Next overlay controls -->
+              <button type="button" class="modal-carousel-arrow modal-carousel-prev" id="modal-gallery-prev" aria-label="Previous image">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
+              <button type="button" class="modal-carousel-arrow modal-carousel-next" id="modal-gallery-next" aria-label="Next image">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Smooth Horizontal Thumbnails Track (non-wrapping, touch-scrollable) -->
+          <div class="product-modal-thumbnails-wrapper">
+            <div id="modal-product-thumbnails" class="product-modal-thumbnails" role="tablist" aria-label="Alternate image angles">
+              <!-- Dynamically populated thumbnails -->
+            </div>
+          </div>
+
+          <div class="product-modal-trust-strip">
+            <div class="modal-trust-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span>100% Genuine Tech</span>
+            </div>
+            <div class="modal-trust-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+              <span>Express Ghana Dispatch</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Info, Tabs & Technical Content -->
+        <div class="product-modal-content">
+          <div class="product-modal-header-meta">
+            <div class="product-modal-kicker">
+              <span id="modal-product-brand" class="modal-brand-label">BRAND</span>
+              <span class="meta-sep" aria-hidden="true">·</span>
+              <span id="modal-product-category" class="modal-cat-label">CATEGORY</span>
+              <span class="meta-sep" aria-hidden="true">·</span>
+              <span id="modal-product-sku" class="modal-sku-label">SKU</span>
+            </div>
+            <h2 id="modal-product-title" class="product-modal-title">Product Name</h2>
+            
+            <div class="product-modal-pricing-row">
+              <div class="price-wrap">
+                <span id="modal-product-price" class="modal-price">GH₵ 0.00</span>
+                <span id="modal-product-orig-price" class="modal-orig-price"></span>
+                <span id="modal-product-discount" class="modal-discount-tag"></span>
+              </div>
+              <div id="modal-product-stock-status" class="modal-stock-badge">In Stock</div>
+            </div>
+
+            <p id="modal-product-desc" class="product-modal-short-desc"></p>
+          </div>
+
+          <!-- Segmented Navigation Tabs -->
+          <div class="product-modal-tabs-bar" role="tablist" aria-label="Product details tabs">
+            <button type="button" class="modal-tab-btn active" role="tab" id="tab-btn-specs" aria-selected="true" aria-controls="tab-panel-specs" onclick="switchProductDetailTab('specs')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              <span>Specifications</span>
+            </button>
+            <button type="button" class="modal-tab-btn" role="tab" id="tab-btn-brand" aria-selected="false" aria-controls="tab-panel-brand" onclick="switchProductDetailTab('brand')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+              <span>Brand &amp; Origin</span>
+            </button>
+            <button type="button" class="modal-tab-btn" role="tab" id="tab-btn-warranty" aria-selected="false" aria-controls="tab-panel-warranty" onclick="switchProductDetailTab('warranty')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+              <span>Warranty &amp; Delivery</span>
+            </button>
+          </div>
+
+          <!-- Tab Panels -->
+          <div class="product-modal-tab-panels">
+            <!-- Panel 1: Specs -->
+            <div id="tab-panel-specs" class="modal-tab-panel active" role="tabpanel" aria-labelledby="tab-btn-specs">
+              <div id="modal-specs-table" class="modal-specs-table">
+                <!-- Dynamically populated key-value pairs -->
+              </div>
+            </div>
+
+            <!-- Panel 2: Brand & Manufacturing -->
+            <div id="tab-panel-brand" class="modal-tab-panel" role="tabpanel" aria-labelledby="tab-btn-brand" style="display: none;">
+              <div id="modal-brand-content" class="modal-brand-content">
+                <!-- Dynamically populated brand and manufacturing specs -->
+              </div>
+            </div>
+
+            <!-- Panel 3: Warranty & Delivery -->
+            <div id="tab-panel-warranty" class="modal-tab-panel" role="tabpanel" aria-labelledby="tab-btn-warranty" style="display: none;">
+              <div id="modal-warranty-content" class="modal-warranty-content">
+                <!-- Dynamically populated warranty and shipping info -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Permanent Sticky Purchase Bar (Always anchored at bottom, safe-inset aware) -->
+    <div class="product-modal-action-footer" id="modal-action-footer">
+      <div class="modal-qty-control">
+        <span class="qty-label">Quantity</span>
+        <div class="qty-stepper">
+          <button type="button" id="modal-qty-minus" class="qty-btn" aria-label="Decrease quantity">&minus;</button>
+          <input type="number" id="modal-qty-input" value="1" min="1" max="99" aria-label="Quantity" readonly />
+          <button type="button" id="modal-qty-plus" class="qty-btn" aria-label="Increase quantity">&plus;</button>
+        </div>
+      </div>
+      
+      <div class="modal-action-buttons">
+        <button type="button" id="modal-add-to-cart-btn" class="modal-add-cart-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+          <span id="modal-add-cart-text">Add to Cart</span>
+        </button>
+        <button type="button" id="modal-wishlist-toggle-btn" class="modal-wishlist-btn" aria-label="Save to wishlist">
+          <svg class="wishlist-heart-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <script src="src/products.js?v=v202610191004"></script>
+  <script src="ghana-validation.js?v=v202610191004"></script>
+  <script src="script.js?v=v202610191004"></script>
   <script>
     // Check user authentication status (unified navigation)
     function checkAuthStatus() {

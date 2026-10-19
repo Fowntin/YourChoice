@@ -2152,8 +2152,54 @@ async function handleGetProducts(req, res) {
   }
 }
 
+async function handleGetSingleProduct(req, res) {
+  try {
+    const requestedId = req.params.id;
+    const staticItem = staticProducts.find(p => p.id === requestedId || p.sku === requestedId);
+    if (!staticItem) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    let dynamicMetrics = {};
+    if (isMongoConnected) {
+      const dbProduct = await Product.findOne({ productSku: staticItem.id }, { stock: 1, totalSales: 1, _id: 0 }).lean();
+      if (dbProduct) dynamicMetrics = dbProduct;
+    } else if (inMemory.products) {
+      const memProd = inMemory.products.find(p => p.productSku === staticItem.id);
+      if (memProd) dynamicMetrics = memProd;
+    }
+
+    const stock = typeof dynamicMetrics.stock === 'number' ? dynamicMetrics.stock : (typeof staticItem.stock === 'number' ? staticItem.stock : 10);
+    const totalSales = typeof dynamicMetrics.totalSales === 'number' ? dynamicMetrics.totalSales : 0;
+    const hasDiscount = Boolean(
+      staticItem.isOnSale ||
+      (staticItem.discount && staticItem.discount > 0) ||
+      (staticItem.originalPrice && staticItem.originalPrice > staticItem.price)
+    );
+    const discountPercentage = staticItem.discount || (
+      staticItem.originalPrice && staticItem.originalPrice > staticItem.price
+        ? Math.round(((staticItem.originalPrice - staticItem.price) / staticItem.originalPrice) * 100)
+        : 0
+    );
+
+    res.json({
+      ...staticItem,
+      stock,
+      totalSales,
+      inStock: stock > 0,
+      isTrending: Boolean(totalSales >= 5 || staticItem.isTrending),
+      hasDiscount,
+      discountPercentage
+    });
+  } catch (err) {
+    console.error('Failed to retrieve product details:', err);
+    res.status(500).json({ error: 'Failed to retrieve product details' });
+  }
+}
+
 app.get('/api/v1/products', handleGetProducts);
 app.get('/api/products', handleGetProducts);
+app.get('/api/products/:id', handleGetSingleProduct);
 
 // Serve static frontend files from parent directory
 app.use(express.static(rootDir, { index: false }));

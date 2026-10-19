@@ -216,7 +216,7 @@ function updateFloatingCartCount() {
   }
 }
 
-function addToCart(productOrId) {
+function addToCart(productOrId, quantityToAdd = 1) {
   let product = productOrId;
   if (typeof productOrId === 'string' && typeof products !== 'undefined') {
     product = products.find(p => p.id === productOrId);
@@ -228,19 +228,22 @@ function addToCart(productOrId) {
     return;
   }
 
+  const qty = Math.max(1, parseInt(quantityToAdd, 10) || 1);
+
   showProcessingState();
   
   setTimeout(() => {
-    const existing = cart.find(item => item.name === product.name);
+    const existing = cart.find(item => item.name === product.name || (product.id && item.id === product.id));
     if (existing) {
-      existing.quantity += 1;
+      existing.quantity += qty;
     } else {
-      cart.push({ ...product, quantity: 1 });
+      cart.push({ ...product, quantity: qty });
     }
     updateCartUI();
     updateFloatingCartCount(); // Update floating cart
     hideProcessingState();
-    showToast(`${product.name} added to cart`, 'success', {
+    const qtyPrefix = qty > 1 ? `${qty}x ` : '';
+    showToast(`${qtyPrefix}${product.name} added to cart`, 'success', {
       text: 'View Cart',
       onClick: () => {
         if (typeof toggleCartView === 'function') toggleCartView();
@@ -1286,6 +1289,13 @@ function createProductCard(product) {
   }
   
   const inWishlist = typeof isWishlisted === 'function' ? isWishlisted(product.id) : false;
+  const brandLabel = product.brand ? `<span class="product-card-interactive-tag">${escapeHtml(product.brand)}</span>` : '';
+
+  card.setAttribute('role', 'button');
+  card.setAttribute('tabindex', '0');
+  card.setAttribute('aria-haspopup', 'dialog');
+  card.setAttribute('aria-label', `View specifications and manufacturing details for ${product.name}`);
+
   card.innerHTML = `
     <div class="product-card-header">
       <div class="product-badges">${badges}</div>
@@ -1294,19 +1304,39 @@ function createProductCard(product) {
       </button>
     </div>
     <div class="product-image-wrap">
-      <img src="${product.images[0]}" alt="${product.name}" loading="lazy" />
+      <img src="${product.images[0]}" alt="${escapeHtml(product.name)}" loading="lazy" />
     </div>
     <div class="product-card-body">
-      <h3>${product.name}</h3>
+      ${brandLabel}
+      <h3>${escapeHtml(product.name)}</h3>
       ${featuresDisplay}
       <div class="product-price-row">${priceDisplay}</div>
       ${stockInfo}
+      <div class="product-view-details-hint" aria-hidden="true">
+        <span>View specs &amp; brand details</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </div>
     </div>
     <button type="button" class="add-to-cart-btn" data-product-id="${product.id}">
       Add to Cart
     </button>
   `;
   
+  // Card click opens the detailed specification modal (unless action buttons are clicked)
+  card.addEventListener('click', () => {
+    openProductDetailModal(product);
+  });
+
+  // Accessible keyboard activation (Enter or Space)
+  card.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      // Ignore if currently focused on a button inside the card
+      if (e.target && e.target.tagName === 'BUTTON') return;
+      e.preventDefault();
+      openProductDetailModal(product);
+    }
+  });
+
   // Attach event listener directly to avoid inline quote syntax errors
   const addBtn = card.querySelector('.add-to-cart-btn');
   if (addBtn) {
@@ -1599,13 +1629,20 @@ window.addEventListener('DOMContentLoaded', () => {
     }, 600);
   }
   
-  // Display products
+  // Display products (immediate render from static catalog)
   if (document.getElementById('products')) {
     displayProducts();
   }
   if (document.getElementById('trending-carousel')) {
     displayTrendingProducts();
   }
+
+  // Asynchronously synchronize dynamic live stock from MongoDB backend
+  syncHybridCatalogFromBackend();
+
+  // Check URL deep-link hash (e.g. #product-LAP001)
+  checkProductDeepLink();
+  window.addEventListener('hashchange', checkProductDeepLink);
   
   // Setup category filtering & sticky navigation
   if (document.getElementById('category-filter')) {
@@ -2768,3 +2805,663 @@ window.addEventListener('resize', () => {
     });
   }
 });
+
+// ========================================
+// HYBRID PRODUCT CATALOG & QUICK-VIEW DETAIL MODAL
+// ========================================
+
+let activeModalProduct = null;
+let activeModalQuantity = 1;
+let activeModalImages = [];
+let activeModalImageIndex = 0;
+
+// 1. Asynchronously fetch live MongoDB metrics (stock, sales) and update the in-memory catalog
+async function syncHybridCatalogFromBackend() {
+  try {
+    const res = await fetch('/api/products');
+    if (!res.ok) return;
+    const serverProducts = await res.json();
+    if (Array.isArray(serverProducts) && serverProducts.length > 0) {
+      if (typeof products !== 'undefined') {
+        // Merge dynamic metrics into local products without dropping static objects
+        serverProducts.forEach(serverItem => {
+          const localItem = products.find(p => p.id === serverItem.id);
+          if (localItem) {
+            localItem.stock = serverItem.stock;
+            localItem.totalSales = serverItem.totalSales;
+            localItem.inStock = serverItem.inStock;
+            localItem.isTrending = serverItem.isTrending;
+            localItem.hasDiscount = serverItem.hasDiscount;
+            localItem.discountPercentage = serverItem.discountPercentage;
+          }
+        });
+      }
+
+      // If category filter is active, maintain filter view, otherwise refresh all
+      const activeFilterBtn = document.querySelector('.filter-btn.active');
+      const activeCategory = activeFilterBtn ? activeFilterBtn.getAttribute('data-category') : 'all';
+      if (activeCategory && activeCategory !== 'all') {
+        const filtered = products.filter(p => p.category === activeCategory);
+        displayProducts(filtered);
+      } else {
+        displayProducts(products);
+      }
+
+      if (typeof displayTrendingProducts === 'function') {
+        displayTrendingProducts();
+      }
+
+      // If detail modal is currently open, refresh its stock badge live
+      if (activeModalProduct) {
+        const refreshed = products.find(p => p.id === activeModalProduct.id);
+        if (refreshed) {
+          updateModalStockUI(refreshed);
+        }
+      }
+    }
+  } catch (err) {
+    // Offline resilience: seamless fallback to static catalog
+    console.info('Hybrid sync operating on static catalog fallback:', err.message);
+  }
+}
+
+// 2. Open Product Quick-View Detail Modal / Bottom Sheet
+function openProductDetailModal(productOrId) {
+  let product = productOrId;
+  if (typeof productOrId === 'string' && typeof products !== 'undefined') {
+    product = products.find(p => p.id === productOrId || p.sku === productOrId);
+  }
+  if (!product) return;
+
+  activeModalProduct = product;
+  activeModalQuantity = 1;
+
+  const modal = document.getElementById('product-detail-modal');
+  if (!modal) return;
+
+  // Title, Brand & Categorical Metadata
+  const brandEl = document.getElementById('modal-product-brand');
+  const catEl = document.getElementById('modal-product-category');
+  const skuEl = document.getElementById('modal-product-sku');
+  const titleEl = document.getElementById('modal-product-title');
+  const descEl = document.getElementById('modal-product-desc');
+
+  if (brandEl) brandEl.textContent = (product.brand || 'GENUINE').toUpperCase();
+  if (catEl) catEl.textContent = (product.category || 'TECH').toUpperCase();
+  if (skuEl) skuEl.textContent = product.sku || product.id || '';
+  if (titleEl) titleEl.textContent = product.name;
+  if (descEl) descEl.textContent = product.description || '';
+
+  // Pricing & Discount
+  const priceEl = document.getElementById('modal-product-price');
+  const origPriceEl = document.getElementById('modal-product-orig-price');
+  const discountEl = document.getElementById('modal-product-discount');
+
+  if (priceEl) priceEl.textContent = `${product.currency || 'GH₵'} ${Number(product.price).toFixed(2)}`;
+  if (origPriceEl) {
+    if (product.originalPrice && product.originalPrice > product.price) {
+      origPriceEl.textContent = `${product.currency || 'GH₵'} ${Number(product.originalPrice).toFixed(2)}`;
+      origPriceEl.style.display = 'inline';
+    } else {
+      origPriceEl.style.display = 'none';
+      origPriceEl.textContent = '';
+    }
+  }
+
+  if (discountEl) {
+    const discountPct = product.discount || (
+      product.originalPrice && product.originalPrice > product.price
+        ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+        : 0
+    );
+    if (discountPct > 0) {
+      discountEl.textContent = `-${discountPct}% OFF`;
+      discountEl.style.display = 'inline-block';
+    } else {
+      discountEl.style.display = 'none';
+      discountEl.textContent = '';
+    }
+  }
+
+  // Live Stock Indicator
+  updateModalStockUI(product);
+
+  // Gallery: Setup Multi-Angle Image Array
+  activeModalImages = Array.isArray(product.images) && product.images.length > 0 
+    ? product.images 
+    : [product.image || 'src/assets/product1.jpg'];
+  activeModalImageIndex = 0;
+
+  const mainImg = document.getElementById('modal-product-main-img');
+  const thumbsContainer = document.getElementById('modal-product-thumbnails');
+  const badgesOverlay = document.getElementById('modal-product-badges');
+  const dotsContainer = document.getElementById('modal-carousel-dots');
+  const prevBtn = document.getElementById('modal-gallery-prev');
+  const nextBtn = document.getElementById('modal-gallery-next');
+
+  if (mainImg) {
+    mainImg.src = activeModalImages[0];
+    mainImg.alt = `${product.name} primary angle`;
+    mainImg.style.opacity = '1';
+  }
+
+  if (badgesOverlay) {
+    let badgeHtml = '';
+    if (product.isTrending) {
+      badgeHtml += `<span class="trending-badge">🔥 Trending</span>`;
+    }
+    badgesOverlay.innerHTML = badgeHtml;
+  }
+
+  // Carousel Swipe Dots
+  if (dotsContainer) {
+    dotsContainer.innerHTML = '';
+    if (activeModalImages.length > 1) {
+      dotsContainer.style.display = 'flex';
+      activeModalImages.forEach((_, idx) => {
+        const dot = document.createElement('button');
+        dot.type = 'button';
+        dot.className = `modal-carousel-dot ${idx === 0 ? 'active' : ''}`;
+        dot.setAttribute('aria-label', `Go to slide ${idx + 1}`);
+        dot.onclick = (e) => {
+          e.stopPropagation();
+          setModalImageByIndex(idx);
+        };
+        dotsContainer.appendChild(dot);
+      });
+    } else {
+      dotsContainer.style.display = 'none';
+    }
+  }
+
+  // Carousel Prev / Next Arrow Controls
+  if (prevBtn && nextBtn) {
+    if (activeModalImages.length > 1) {
+      prevBtn.style.display = 'flex';
+      nextBtn.style.display = 'flex';
+      prevBtn.onclick = (e) => {
+        e.stopPropagation();
+        const prevIdx = (activeModalImageIndex - 1 + activeModalImages.length) % activeModalImages.length;
+        setModalImageByIndex(prevIdx);
+      };
+      nextBtn.onclick = (e) => {
+        e.stopPropagation();
+        const nextIdx = (activeModalImageIndex + 1) % activeModalImages.length;
+        setModalImageByIndex(nextIdx);
+      };
+    } else {
+      prevBtn.style.display = 'none';
+      nextBtn.style.display = 'none';
+    }
+  }
+
+  // Horizontal Thumbnail Track (never wraps, auto-scrolls to center)
+  if (thumbsContainer) {
+    thumbsContainer.innerHTML = '';
+    activeModalImages.forEach((imgSrc, idx) => {
+      const thumbBtn = document.createElement('button');
+      thumbBtn.type = 'button';
+      thumbBtn.className = `product-modal-thumb-btn ${idx === 0 ? 'active' : ''}`;
+      thumbBtn.setAttribute('data-index', String(idx));
+      thumbBtn.setAttribute('aria-label', `View image angle ${idx + 1}`);
+      thumbBtn.innerHTML = `<img src="${imgSrc}" alt="${escapeHtml(product.name)} thumbnail ${idx + 1}" loading="lazy" />`;
+      thumbBtn.addEventListener('click', () => {
+        setModalImageByIndex(idx);
+      });
+      thumbsContainer.appendChild(thumbBtn);
+    });
+  }
+
+  // Bind Touch Swipe Gestures to the Hero Image Wrap
+  initHeroSwipeGestures();
+
+  // Populate Specifications Tab
+  populateModalSpecs(product);
+
+  // Populate Brand & Manufacturing Tab
+  populateModalBrandDetails(product);
+
+  // Populate Warranty & Delivery Tab
+  populateModalWarranty(product);
+
+  // Reset to Specifications Tab
+  switchProductDetailTab('specs');
+
+  // Configure Stepper
+  const qtyInput = document.getElementById('modal-qty-input');
+  if (qtyInput) qtyInput.value = 1;
+
+  // Configure Add to Cart Action Button
+  const addCartBtn = document.getElementById('modal-add-to-cart-btn');
+  const addCartText = document.getElementById('modal-add-cart-text');
+  if (addCartBtn) {
+    const isOutOfStock = typeof product.stock === 'number' && product.stock <= 0;
+    addCartBtn.disabled = isOutOfStock;
+    if (addCartText) {
+      addCartText.textContent = isOutOfStock ? 'Out of Stock' : 'Add to Cart';
+    }
+    addCartBtn.onclick = () => {
+      const qty = parseInt(document.getElementById('modal-qty-input')?.value || '1', 10);
+      addToCart(product, qty);
+      closeProductDetailModal();
+    };
+  }
+
+  // Configure Wishlist Button
+  const wishlistBtn = document.getElementById('modal-wishlist-toggle-btn');
+  if (wishlistBtn) {
+    const inWishlist = typeof isWishlisted === 'function' ? isWishlisted(product.id) : false;
+    wishlistBtn.classList.toggle('active', inWishlist);
+    wishlistBtn.setAttribute('aria-label', inWishlist ? 'Remove from wishlist' : 'Save to wishlist');
+    wishlistBtn.onclick = () => {
+      if (typeof toggleWishlist === 'function') {
+        toggleWishlist(product);
+        const nowWishlisted = isWishlisted(product.id);
+        wishlistBtn.classList.toggle('active', nowWishlisted);
+        wishlistBtn.setAttribute('aria-label', nowWishlisted ? 'Remove from wishlist' : 'Save to wishlist');
+      }
+    };
+  }
+
+  // Reset internal scroll body to top
+  const scrollBody = document.getElementById('modal-scroll-body');
+  if (scrollBody) {
+    scrollBody.scrollTop = 0;
+  }
+
+  // Display Modal and Lock Body Scroll
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+
+  // Deep link hash update (silent replace)
+  try {
+    history.replaceState(null, '', `#product-${product.id}`);
+  } catch (_) {}
+}
+
+// Touch Swipe Detection on Hero Image
+function initHeroSwipeGestures() {
+  const heroWrap = document.getElementById('modal-main-image-wrap');
+  if (!heroWrap) return;
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchEndX = 0;
+  let touchEndY = 0;
+
+  heroWrap.ontouchstart = (e) => {
+    if (!e.touches || e.touches.length === 0) return;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  };
+
+  heroWrap.ontouchend = (e) => {
+    if (!e.changedTouches || e.changedTouches.length === 0) return;
+    touchEndX = e.changedTouches[0].clientX;
+    touchEndY = e.changedTouches[0].clientY;
+
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+
+    // Detect predominantly horizontal swipe with at least 35px delta
+    if (Math.abs(diffX) > 35 && Math.abs(diffX) > Math.abs(diffY)) {
+      if (diffX < 0) {
+        // Swipe left -> Next image
+        const nextIdx = (activeModalImageIndex + 1) % activeModalImages.length;
+        setModalImageByIndex(nextIdx);
+      } else {
+        // Swipe right -> Prev image
+        const prevIdx = (activeModalImageIndex - 1 + activeModalImages.length) % activeModalImages.length;
+        setModalImageByIndex(prevIdx);
+      }
+    }
+  };
+
+  // Drag down gesture on drag handle to dismiss bottom sheet
+  const dragHandle = document.querySelector('.product-modal-drag-handle');
+  if (dragHandle) {
+    let handleStartY = 0;
+    dragHandle.ontouchstart = (e) => {
+      if (!e.touches || e.touches.length === 0) return;
+      handleStartY = e.touches[0].clientY;
+    };
+    dragHandle.ontouchend = (e) => {
+      if (!e.changedTouches || e.changedTouches.length === 0) return;
+      const pullDist = e.changedTouches[0].clientY - handleStartY;
+      if (pullDist > 45) {
+        closeProductDetailModal();
+      }
+    };
+  }
+}
+
+// Helper: Set modal image by index, synchronizing carousel dots and horizontal thumbnail scrollbar
+function setModalImageByIndex(idx) {
+  if (!activeModalImages || activeModalImages.length === 0) return;
+  if (idx < 0 || idx >= activeModalImages.length) return;
+
+  activeModalImageIndex = idx;
+  const targetSrc = activeModalImages[idx];
+
+  const mainImg = document.getElementById('modal-product-main-img');
+  if (mainImg) {
+    mainImg.style.opacity = '0.35';
+    setTimeout(() => {
+      mainImg.src = targetSrc;
+      mainImg.style.opacity = '1';
+    }, 100);
+  }
+
+  // Update carousel dots
+  const dots = document.querySelectorAll('.modal-carousel-dot');
+  dots.forEach((d, i) => {
+    d.classList.toggle('active', i === idx);
+  });
+
+  // Update thumbnails and scroll selected thumbnail into view
+  const thumbs = document.querySelectorAll('.product-modal-thumb-btn');
+  thumbs.forEach((t, i) => {
+    const isCurrent = (i === idx);
+    t.classList.toggle('active', isCurrent);
+    if (isCurrent) {
+      // Auto-scroll selected thumbnail smoothly into horizontal center view
+      t.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  });
+}
+
+// Legacy helper compatibility
+function setProductModalActiveImage(imgSrc, activeThumbBtn) {
+  const idx = activeModalImages.indexOf(imgSrc);
+  if (idx !== -1) {
+    setModalImageByIndex(idx);
+  } else {
+    const mainImg = document.getElementById('modal-product-main-img');
+    if (mainImg) mainImg.src = imgSrc;
+    const thumbs = document.querySelectorAll('.product-modal-thumb-btn');
+    thumbs.forEach(t => t.classList.remove('active'));
+    if (activeThumbBtn) activeThumbBtn.classList.add('active');
+  }
+}
+
+// Helper: update stock badge in modal
+function updateModalStockUI(product) {
+  const stockBadge = document.getElementById('modal-product-stock-status');
+  if (!stockBadge) return;
+
+  const stock = typeof product.stock === 'number' ? product.stock : 10;
+  if (stock <= 0) {
+    stockBadge.className = 'modal-stock-badge stock-out';
+    stockBadge.textContent = 'Out of Stock';
+  } else if (stock <= 5) {
+    stockBadge.className = 'modal-stock-badge stock-low';
+    stockBadge.textContent = `Only ${stock} left in stock!`;
+  } else {
+    stockBadge.className = 'modal-stock-badge';
+    stockBadge.textContent = `● In Stock (${stock} available)`;
+  }
+}
+
+// 3. Switch Tabs inside Product Detail Modal
+function switchProductDetailTab(tabKey) {
+  const tabs = ['specs', 'brand', 'warranty'];
+  tabs.forEach(key => {
+    const btn = document.getElementById(`tab-btn-${key}`);
+    const panel = document.getElementById(`tab-panel-${key}`);
+    const isActive = (key === tabKey);
+
+    if (btn) {
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    }
+    if (panel) {
+      panel.classList.toggle('active', isActive);
+      panel.style.display = isActive ? 'block' : 'none';
+    }
+  });
+}
+
+// 4. Populate Specifications Tab Content
+function populateModalSpecs(product) {
+  const container = document.getElementById('modal-specs-table');
+  if (!container) return;
+
+  const specs = product.specifications || {};
+  const entries = Object.entries(specs);
+
+  if (entries.length === 0) {
+    container.innerHTML = `
+      <div style="padding: 1.5rem; text-align: center; color: #64748b;">
+        Standard factory hardware specifications apply. Contact support for customized engineering builds.
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  entries.forEach(([key, val]) => {
+    const formattedKey = key
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, str => str.toUpperCase());
+    html += `
+      <div class="spec-row">
+        <div class="spec-label">${escapeHtml(formattedKey)}</div>
+        <div class="spec-val">${escapeHtml(String(val))}</div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+// 5. Populate Brand & Manufacturing Tab Content
+function populateModalBrandDetails(product) {
+  const container = document.getElementById('modal-brand-content');
+  if (!container) return;
+
+  const mfg = product.manufacturingDetails || {};
+  const brandName = mfg.brandName || product.brand || 'Original Equipment Manufacturer';
+  const manufacturer = mfg.manufacturer || product.manufacturer || 'Authorized Manufacturer Facility';
+  const modelNo = mfg.modelNumber || product.modelNumber || product.sku || 'N/A';
+  const origin = mfg.countryOfOrigin || product.countryOfOrigin || 'International Standard Manufacturing';
+  const certs = Array.isArray(mfg.certifications) && mfg.certifications.length > 0 
+    ? mfg.certifications 
+    : ['CE Certified', 'RoHS Compliant', 'ISO 9001 Facility'];
+  const boxContents = Array.isArray(mfg.boxContents) && mfg.boxContents.length > 0
+    ? mfg.boxContents
+    : [`${product.name}`, 'Standard Power Adapter / Cable', 'User Setup Guide', 'Official Ghana Warranty Slip'];
+
+  const certHtml = certs.map(c => `<span class="cert-tag-chip">${escapeHtml(c)}</span>`).join('');
+  const boxHtml = boxContents.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+
+  container.innerHTML = `
+    <div class="brand-detail-card">
+      <h4>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        <span>Brand &amp; Provenance</span>
+      </h4>
+      <div class="modal-specs-table" style="margin-top: 8px;">
+        <div class="spec-row">
+          <div class="spec-label">Brand Name</div>
+          <div class="spec-val" style="font-weight: 700; color: var(--color-accent, #d9480f);">${escapeHtml(brandName)}</div>
+        </div>
+        <div class="spec-row">
+          <div class="spec-label">Manufacturer</div>
+          <div class="spec-val">${escapeHtml(manufacturer)}</div>
+        </div>
+        <div class="spec-row">
+          <div class="spec-label">Model / MPN</div>
+          <div class="spec-val" style="font-family: monospace;">${escapeHtml(modelNo)}</div>
+        </div>
+        <div class="spec-row">
+          <div class="spec-label">Origin</div>
+          <div class="spec-val">${escapeHtml(origin)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="brand-detail-card">
+      <h4>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>Quality &amp; Regulatory Certifications</span>
+      </h4>
+      <p style="margin-bottom: 6px;">Certified and compliant with international safety and energy efficiency protocols:</p>
+      <div class="cert-tags-wrap">${certHtml}</div>
+    </div>
+
+    <div class="brand-detail-card">
+      <h4>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        <span>What's In The Box</span>
+      </h4>
+      <ul class="box-contents-list">${boxHtml}</ul>
+    </div>
+  `;
+}
+
+// 6. Populate Warranty & Delivery Tab Content
+function populateModalWarranty(product) {
+  const container = document.getElementById('modal-warranty-content');
+  if (!container) return;
+
+  const ws = product.warrantyAndShipping || {};
+  const warrantyPeriod = ws.warrantyPeriod || '1 Year Official Manufacturer Warranty';
+  const warrantyCoverage = ws.warrantyCoverage || 'Comprehensive hardware defects and component protection.';
+  const deliveryEstimate = ws.deliveryEstimate || 'Greater Accra: Same-Day Delivery; Kumasi & Regions: 24–48 hours.';
+  const returnPolicy = ws.returnPolicy || '7-day replacement guarantee for verified manufacturer defects.';
+
+  container.innerHTML = `
+    <div class="warranty-detail-card" style="background: #fffbeb; border-color: #fde68a;">
+      <h4 style="color: #92400e;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>Official Warranty: ${escapeHtml(warrantyPeriod)}</span>
+      </h4>
+      <p style="color: #78350f;">${escapeHtml(warrantyCoverage)} Authorized technicians and genuine OEM replacement parts guarantee peace of mind.</p>
+    </div>
+
+    <div class="warranty-detail-card">
+      <h4>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        <span>Ghana Local Delivery</span>
+      </h4>
+      <p>${escapeHtml(deliveryEstimate)} All electronics are dispatched in electrostatic foam cushioned packaging with trackable delivery.</p>
+    </div>
+
+    <div class="warranty-detail-card">
+      <h4>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        <span>7-Day Return Guarantee</span>
+      </h4>
+      <p>${escapeHtml(returnPolicy)} Inspect your package upon arrival. If anything does not match your ordered specifications, our team replaces it immediately.</p>
+    </div>
+  `;
+}
+
+// 7. Close Product Detail Modal
+function closeProductDetailModal() {
+  const modal = document.getElementById('product-detail-modal');
+  if (!modal) return;
+  modal.style.display = 'none';
+
+  // Check if any other modal is still active
+  const anyOtherModalOpen = [
+    document.getElementById('contact-modal'),
+    document.getElementById('faq-modal'),
+    document.getElementById('wishlist-modal'),
+    document.getElementById('orders-modal'),
+    document.getElementById('profile-modal-backdrop')
+  ].some(m => m && m.style.display && m.style.display !== 'none');
+
+  if (!anyOtherModalOpen) {
+    document.body.style.overflow = '';
+  }
+
+  activeModalProduct = null;
+  activeModalQuantity = 1;
+
+  // Clear product deep-link hash from address bar without reload
+  if (window.location.hash && window.location.hash.startsWith('#product-')) {
+    try {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    } catch (_) {}
+  }
+}
+
+// 8. Deep-link handler: checks if URL has #product-LAP001
+function checkProductDeepLink() {
+  const hash = window.location.hash;
+  if (hash && hash.startsWith('#product-')) {
+    const prodId = hash.replace('#product-', '').trim();
+    if (prodId && typeof products !== 'undefined') {
+      const match = products.find(p => p.id === prodId || p.sku === prodId);
+      if (match) {
+        setTimeout(() => {
+          openProductDetailModal(match);
+        }, 150);
+      }
+    }
+  }
+}
+
+// 9. Setup Modal Quantity Stepper Listeners
+document.addEventListener('DOMContentLoaded', () => {
+  const minusBtn = document.getElementById('modal-qty-minus');
+  const plusBtn = document.getElementById('modal-qty-plus');
+  const qtyInput = document.getElementById('modal-qty-input');
+
+  if (minusBtn && qtyInput) {
+    minusBtn.addEventListener('click', () => {
+      let current = parseInt(qtyInput.value, 10) || 1;
+      if (current > 1) {
+        current -= 1;
+        qtyInput.value = current;
+        activeModalQuantity = current;
+      }
+    });
+  }
+
+  if (plusBtn && qtyInput) {
+    plusBtn.addEventListener('click', () => {
+      let current = parseInt(qtyInput.value, 10) || 1;
+      const maxStock = activeModalProduct && typeof activeModalProduct.stock === 'number' 
+        ? activeModalProduct.stock 
+        : 99;
+      if (current < maxStock) {
+        current += 1;
+        qtyInput.value = current;
+        activeModalQuantity = current;
+      } else {
+        if (typeof showToast === 'function') {
+          showToast(`Maximum available stock is ${maxStock} unit${maxStock === 1 ? '' : 's'}.`, 'warning');
+        }
+      }
+    });
+  }
+});
+
+// 10. Global Escape and arrow key listeners for product modal
+document.addEventListener('keydown', (e) => {
+  const prodModal = document.getElementById('product-detail-modal');
+  if (!prodModal || prodModal.style.display === 'none') return;
+
+  if (e.key === 'Escape') {
+    closeProductDetailModal();
+  } else if (e.key === 'ArrowLeft' && activeModalImages && activeModalImages.length > 1) {
+    // Only navigate if user is not actively typing in an input
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+    const prevIdx = (activeModalImageIndex - 1 + activeModalImages.length) % activeModalImages.length;
+    setModalImageByIndex(prevIdx);
+  } else if (e.key === 'ArrowRight' && activeModalImages && activeModalImages.length > 1) {
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+    const nextIdx = (activeModalImageIndex + 1) % activeModalImages.length;
+    setModalImageByIndex(nextIdx);
+  }
+});
+
+// Expose modal handlers on window
+window.openProductDetailModal = openProductDetailModal;
+window.closeProductDetailModal = closeProductDetailModal;
+window.switchProductDetailTab = switchProductDetailTab;
+window.setProductModalActiveImage = setProductModalActiveImage;
+window.setModalImageByIndex = setModalImageByIndex;
+window.syncHybridCatalogFromBackend = syncHybridCatalogFromBackend;
