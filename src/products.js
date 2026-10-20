@@ -5,6 +5,403 @@
 
 const products = [
   // ========================================
+  // SMARTPHONES & MOBILE PHONES
+  // ========================================
+
+  // Apple iPhone
+  {
+    id: "PHO001",
+    sku: "PHO-APPLE-15P-001",
+    name: "Apple iPhone 15 Pro (128GB - Natural Titanium)",
+    brand: "Apple",
+    manufacturer: "Apple Inc. Cupertino, California, USA",
+    modelNumber: "A3102 / MTV13ZD/A",
+    countryOfOrigin: "Designed by Apple in California, Assembled in China/India",
+    category: "smartphones",
+    subcategory: "iphone-apple",
+    price: 16800.00,
+    originalPrice: 17900.00,
+    currency: "GH₵",
+    stock: 9,
+    images: [
+      "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=600&h=450&fit=crop",
+      "https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=600&h=450&fit=crop",
+      "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=600&h=450&fit=crop"
+    ],
+    description: "Forged in aerospace-grade titanium with the breakthrough A17 Pro 3nm chip, customizable Action button, next-generation portraits with Focus and Depth Control, and USB-C with USB 3 speeds. Officially verified for Ghana 5G cellular networks.",
+    specifications: {
+      "Storage Capacity": "128GB NVMe Internal Storage",
+      "RAM": "8GB LPDDR5 Unified Memory",
+      "Processor": "Apple A17 Pro (6-core CPU with 2 performance and 4 efficiency cores, 6-core GPU, 16-core Neural Engine)",
+      "Display": "6.1\" Super Retina XDR OLED (2556 x 1179 at 460 ppi), ProMotion 120Hz, Dynamic Island, 2000 nits peak brightness",
+      "Rear Camera System": "Pro Triple Camera: 48MP Main (24mm, ƒ/1.78, 2nd-gen Sensor-shift OIS) + 12MP Ultra Wide (13mm, 120° FOV) + 12MP 3x Telephoto (77mm, OIS), 4K ProRes 60fps",
+      "Front Camera": "12MP TrueDepth (ƒ/1.9) with Autofocus and 4K HDR Dolby Vision",
+      "Battery & Charging": "Up to 23 hours video playback, MagSafe wireless up to 15W, Fast charge 50% in 30 mins via 20W+ adapter (USB-C)",
+      "Network & SIM": "5G NR (sub-6 GHz), Gigabit LTE, Dual SIM (1x Physical Nano-SIM + 1x eSIM), MTN Ghana & Telecel 5G Approved, Wi-Fi 6E, Bluetooth 5.3",
+      "Operating System": "iOS 17 (Upgradable to iOS 18 with Apple Intelligence)",
+      "Build & Durability": "Titanium frame with textured matte glass back, Ceramic Shield front, IP68 water/dust resistance (6m up to 30 mins)",
+      "Weight & Dimensions": "187 g | 146.6 x 70.6 x 8.25 mm"
+    },
+    manufacturingDetails: {
+      brandName: "Apple",
+      manufacturer: "Apple Inc. (One Apple Park Way, Cupertino, CA 95014, USA)",
+      modelNumber: "iPhone 15 Pro - A3102 (Global / African Regional Version)",
+      countryOfOrigin: "Designed in California, Assembled in China",
+      certifications: ["NCA Ghana Type Approved", "CE Mark", "FCC Certified", "RoHS Compliant", "Qi Certified"],
+      boxContents: [
+        "Apple iPhone 15 Pro with iOS 17",
+        "Braided USB-C Charge Cable (1m)",
+        "SIM Ejector Pin",
+        "Documentation & Apple Logo Decal",
+        "1-Year Official Apple Ghana Warranty Card"
+      ]
+    },
+    warrantyAndShipping: {
+      warrantyPeriod: "1 Year Official Apple International & Ghana Warranty",
+      warrantyCoverage: "Full genuine hardware and display replacement handled directly via Apple Authorized Service Providers in Ghana (iStore Ghana / CompuGhana).",
+      deliveryEstimate: "Greater Accra: 2–4 hours (Same-Day Express); Regional Capitals: 24–48 hours nationwide with insured tracking.",
+      returnPolicy: "7-day replacement for verified factory hardware defects (original packaging and seal intact)."
+    },
+    features: ["A17 Pro 3nm Processor", "Aerospace Titanium Design", "48MP Pro Triple Camera", "Ghana 5G Dual SIM Ready"],
+    isTrending: true,
+    isOnSale: true,
+    discount: 6,
+    shipping: {
+      local: true,
+      weight: "0.19kg",
+      dimensions: "14.7 x 7.1 x 0.8 cm"
+    }
+  },
+
+  {
+    id: "PHO002",
+    sku: "PHO-APPLE-13-002",
+    name: "Apple iPhone 13 (128GB - Midnight Blue)",
+    brand: "Apple",
+    manufacturer: "Apple Inc. Cupertino, California, USA",
+    modelNumber: "A2633 / MLPF3ZD/A",
+    countryOfOrigin: "Designed by Apple in California, Assembled in China/India",
+    category: "smartphones",
+    subcategory: "iphone-apple",
+    price: 8950.00,
+    originalPrice: 9800.00,
+    currency: "GH₵",
+    stock: 14,
+    images: [
+      "https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=600&h=450&fit=crop",
+      "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=600&h=450&fit=crop",
+      "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=600&h=450&fit=crop"
+    ],
+    description: "The superstar all-rounder: Powered by Apple A15 Bionic for blazing performance and stellar efficiency. Features vibrant Super Retina XDR OLED, Cinematic mode 1080p video with rack focus, durable Ceramic Shield glass, and all-day battery life.",
+    specifications: {
+      "Storage Capacity": "128GB NVMe Internal Storage",
+      "RAM": "4GB LPDDR4X",
+      "Processor": "Apple A15 Bionic (6-core CPU with 2 performance and 4 efficiency cores, 4-core GPU, 16-core Neural Engine)",
+      "Display": "6.1\" Super Retina XDR OLED (2532 x 1170 at 460 ppi), HDR10, True Tone, 1200 nits peak HDR brightness",
+      "Rear Camera System": "Advanced Dual Camera: 12MP Wide (ƒ/1.6, Sensor-shift OIS) + 12MP Ultra Wide (ƒ/2.4, 120° FOV), Cinematic Mode (1080p at 30 fps), Photographic Styles",
+      "Front Camera": "12MP TrueDepth (ƒ/2.2) with Cinematic Mode and Smart HDR 4",
+      "Battery & Charging": "Up to 19 hours video playback, MagSafe wireless up to 15W, Fast charge 50% in 30 mins via 20W adapter",
+      "Network & SIM": "5G NR bands, Gigabit LTE with 4x4 MIMO, Dual SIM (Nano-SIM and eSIM), Wi-Fi 6 (802.11ax), Bluetooth 5.0",
+      "Operating System": "iOS 17 (Upgradable to iOS 18)",
+      "Build & Durability": "Aerospace-grade aluminum frame with glass back, Ceramic Shield front, IP68 water/dust resistant",
+      "Weight & Dimensions": "174 g | 146.7 x 71.5 x 7.65 mm"
+    },
+    manufacturingDetails: {
+      brandName: "Apple",
+      manufacturer: "Apple Inc. (One Apple Park Way, Cupertino, CA 95014, USA)",
+      modelNumber: "iPhone 13 - A2633 (Global / African Spec)",
+      countryOfOrigin: "Designed in California, Assembled in China",
+      certifications: ["NCA Ghana Approved", "CE", "FCC", "RoHS", "WEEE"],
+      boxContents: [
+        "Apple iPhone 13 in Midnight Blue",
+        "USB-C to Lightning Cable",
+        "SIM Removal Tool",
+        "Quick Start Guide",
+        "Official Ghana Warranty Slip"
+      ]
+    },
+    warrantyAndShipping: {
+      warrantyPeriod: "1 Year Official Apple Manufacturer Warranty",
+      warrantyCoverage: "Full hardware defects and original battery health coverage via authorized service hubs in Ghana.",
+      deliveryEstimate: "Accra/Tema: 2–4 hours; Kumasi, Takoradi, Tamale: 24–48 hours.",
+      returnPolicy: "7-day return/swap for sealed or verified factory defects."
+    },
+    features: ["A15 Bionic Processor", "Cinematic Video Mode", "Ceramic Shield Glass", "All-Day Battery Life"],
+    isTrending: false,
+    isOnSale: true,
+    discount: 9,
+    shipping: {
+      local: true,
+      weight: "0.17kg",
+      dimensions: "14.7 x 7.2 x 0.8 cm"
+    }
+  },
+
+  // Samsung Galaxy
+  {
+    id: "PHO003",
+    sku: "PHO-SAM-S24U-003",
+    name: "Samsung Galaxy S24 Ultra (256GB - Titanium Black)",
+    brand: "Samsung",
+    manufacturer: "Samsung Electronics Co., Ltd. Suwon, South Korea",
+    modelNumber: "SM-S928B/DS",
+    countryOfOrigin: "Designed in South Korea, Manufactured in Vietnam",
+    category: "smartphones",
+    subcategory: "samsung-galaxy",
+    price: 17900.00,
+    originalPrice: 19200.00,
+    currency: "GH₵",
+    stock: 8,
+    images: [
+      "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=600&h=450&fit=crop",
+      "https://images.unsplash.com/photo-1580910051074-3eb694886505?w=600&h=450&fit=crop",
+      "https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=600&h=450&fit=crop"
+    ],
+    description: "The pinnacle of mobile intelligence: Powered by Snapdragon 8 Gen 3 for Galaxy and built-in Galaxy AI (Circle to Search, Live Call Translation, Note Assist). Features 200MP camera with 100x Space Zoom, integrated low-latency S Pen, and flat Corning Gorilla Armor anti-reflective display.",
+    specifications: {
+      "Storage Capacity": "256GB UFS 4.0 High-Speed Flash Storage",
+      "RAM": "12GB LPDDR5X",
+      "Processor": "Qualcomm Snapdragon 8 Gen 3 for Galaxy (4nm Octa-core up to 3.39 GHz, Adreno 750 GPU)",
+      "Display": "6.8\" Dynamic LTPO AMOLED 2X (3120 x 1440 QHD+), 1–120Hz Adaptive Refresh, 2600 nits peak brightness, Corning Gorilla Armor",
+      "Rear Camera System": "Quad Pro Camera: 200MP Main (ƒ/1.7, OIS, Super Quad Pixel AF) + 50MP Periscope Telephoto (5x Optical, 10x Optical Quality, 100x Space Zoom, OIS) + 10MP Telephoto (3x Optical, OIS) + 12MP Ultra-Wide (120° FOV)",
+      "Front Camera": "12MP Dual Pixel AF (ƒ/2.2) with 4K 60fps video",
+      "Battery & Charging": "5,000 mAh Li-ion battery, 45W Super Fast Charging 2.0 (65% in 30 mins), 15W Fast Wireless Charging 2.0, Wireless PowerShare",
+      "Network & SIM": "5G Sub-6 / mmWave, Dual Nano-SIM + Dual eSIM support, MTN Ghana & Telecel 5G Certified, Wi-Fi 7, Bluetooth 5.3",
+      "Operating System": "Android 14 with One UI 6.1 (7 Years of Guaranteed OS & Security Updates)",
+      "S-Pen & Productivity": "Built-in Bluetooth S Pen with Air Actions, IP68 water resistance, Samsung DeX desktop mode",
+      "Weight & Dimensions": "232 g | 162.3 x 79.0 x 8.6 mm"
+    },
+    manufacturingDetails: {
+      brandName: "Samsung Galaxy",
+      manufacturer: "Samsung Electronics Co., Ltd. (129, Samsung-ro, Yeongtong-gu, Suwon-si, Gyeonggi-do, Korea)",
+      modelNumber: "SM-S928B/DS (Dual SIM African Regional Spec)",
+      countryOfOrigin: "Manufactured in Vietnam under Samsung QC",
+      certifications: ["NCA Ghana Type Approved", "Samsung Official Ghana Care+", "CE", "FCC", "IP68 Certified"],
+      boxContents: [
+        "Samsung Galaxy S24 Ultra Phone",
+        "Integrated S Pen Stylus",
+        "USB-C to USB-C 3A Cable",
+        "Ejection Pin",
+        "Quick Start Guide & Ghana Warranty Slip"
+      ]
+    },
+    warrantyAndShipping: {
+      warrantyPeriod: "24 Months Samsung Ghana Official Warranty",
+      warrantyCoverage: "Comprehensive 2-year warranty covering logic board, cameras, and battery + 1-time discounted screen repair via Samsung Ghana Brand Stores (Circle, Accra Mall, Kumasi City Mall).",
+      deliveryEstimate: "Greater Accra: 2–4 hours; Kumasi & Regions: Next business day.",
+      returnPolicy: "7-day replacement guarantee for verified hardware defects."
+    },
+    features: ["Galaxy AI Suite Built-In", "200MP Quad Camera System", "Integrated S Pen Stylus", "24-Month Ghana Warranty"],
+    isTrending: true,
+    isOnSale: true,
+    discount: 7,
+    shipping: {
+      local: true,
+      weight: "0.23kg",
+      dimensions: "16.2 x 7.9 x 0.9 cm"
+    }
+  },
+
+  {
+    id: "PHO004",
+    sku: "PHO-SAM-A55-004",
+    name: "Samsung Galaxy A55 5G (128GB - Awesome Navy)",
+    brand: "Samsung",
+    manufacturer: "Samsung Electronics Co., Ltd. Suwon, South Korea",
+    modelNumber: "SM-A556B/DS",
+    countryOfOrigin: "Manufactured in Vietnam under Samsung QC",
+    category: "smartphones",
+    subcategory: "samsung-galaxy",
+    price: 4800.00,
+    originalPrice: 5300.00,
+    currency: "GH₵",
+    stock: 20,
+    images: [
+      "https://images.unsplash.com/photo-1580910051074-3eb694886505?w=600&h=450&fit=crop",
+      "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=600&h=450&fit=crop",
+      "https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=600&h=450&fit=crop"
+    ],
+    description: "Premium metal craftsmanship meets high-speed 5G. Featuring metal flat frame with Key Island design, vivid 120Hz Super AMOLED display with Vision Booster, 50MP OIS camera with big-pixel nightography, Samsung Knox Vault security, and 2-day battery life.",
+    specifications: {
+      "Storage Capacity": "128GB Internal Storage (Expandable up to 1TB via MicroSD)",
+      "RAM": "8GB RAM + RAM Plus virtual expansion",
+      "Processor": "Samsung Exynos 1480 (4nm Octa-core up to 2.75 GHz, AMD Xclipse 530 GPU)",
+      "Display": "6.6\" FHD+ Super AMOLED (2340 x 1080), 120Hz Smooth Refresh, 1000 nits HBM, Corning Gorilla Glass Victus+",
+      "Rear Camera System": "Triple Camera: 50MP Main (ƒ/1.8, OIS, Super HDR Video) + 12MP Ultra-Wide (123° FOV) + 5MP Macro (ƒ/2.4)",
+      "Front Camera": "32MP High-Resolution Selfie (ƒ/2.2) with Portrait mode",
+      "Battery & Charging": "5,000 mAh long-life battery, 25W Fast Charging (50% in 30 mins)",
+      "Network & SIM": "5G NR, 4G LTE, Hybrid Dual SIM (Nano-SIM, dual stand-by), MTN Ghana / Telecel 5G Tested, Wi-Fi 6, Bluetooth 5.3",
+      "Operating System": "Android 14 with One UI 6.1 (4 OS Upgrades + 5 Years Security Updates)",
+      "Build & Durability": "Brushed metal side frame with glass front/back, IP67 dust/water resistant (1m for 30 mins)",
+      "Security": "Samsung Knox Vault EAL5+ certified hardware enclave, In-display optical fingerprint",
+      "Weight & Dimensions": "213 g | 161.1 x 77.4 x 8.2 mm"
+    },
+    manufacturingDetails: {
+      brandName: "Samsung Galaxy A-Series",
+      manufacturer: "Samsung Electronics Co., Ltd. (Suwon-si, Gyeonggi-do, Korea)",
+      modelNumber: "SM-A556B/DS (African Dual SIM)",
+      countryOfOrigin: "Manufactured in Vietnam",
+      certifications: ["NCA Ghana Type Approved", "IP67 Certified", "CE", "RoHS"],
+      boxContents: [
+        "Samsung Galaxy A55 5G Phone",
+        "USB Type-C to Type-C Cable",
+        "SIM Ejection Pin",
+        "Quick Start Guide",
+        "Official 24-Month Warranty Card"
+      ]
+    },
+    warrantyAndShipping: {
+      warrantyPeriod: "24 Months Official Samsung Ghana Warranty",
+      warrantyCoverage: "Full parts and labor protection across all authorized Samsung service centers nationwide.",
+      deliveryEstimate: "Accra/Tema: 2–3 hours; Nationwide: 24–48 hours.",
+      returnPolicy: "7-day return policy for unopened or defective devices."
+    },
+    features: ["50MP OIS Nightography", "Metal Key Island Frame", "Super AMOLED 120Hz", "IP67 Water Resistance"],
+    isTrending: false,
+    isOnSale: true,
+    discount: 9,
+    shipping: {
+      local: true,
+      weight: "0.21kg",
+      dimensions: "16.1 x 7.7 x 0.8 cm"
+    }
+  },
+
+  // Tecno Mobile
+  {
+    id: "PHO005",
+    sku: "PHO-TECNO-C30P-005",
+    name: "Tecno Camon 30 Pro 5G (512GB - Alps Snowy Silver)",
+    brand: "Tecno",
+    manufacturer: "Transsion Holdings Co., Ltd. Shenzhen, China",
+    modelNumber: "CL8",
+    countryOfOrigin: "Designed in France & China, Assembled by Transsion",
+    category: "smartphones",
+    subcategory: "tecno-mobile",
+    price: 4200.00,
+    originalPrice: 4650.00,
+    currency: "GH₵",
+    stock: 16,
+    images: [
+      "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=600&h=450&fit=crop",
+      "https://images.unsplash.com/photo-1580910051074-3eb694886505?w=600&h=450&fit=crop",
+      "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&h=450&fit=crop"
+    ],
+    description: "Professional imaging pioneer: Equipped with flagship Sony IMX890 50MP OIS sensor, 50MP eye-tracking autofocus selfie, MediaTek Dimensity 8200 Ultimate 5G flagship chipset, massive 512GB internal storage, fluid 144Hz 1.5K AMOLED display, and blazing 70W Ultra Charge.",
+    specifications: {
+      "Storage Capacity": "512GB High-Speed UFS 3.1 ROM",
+      "RAM": "12GB Physical RAM + up to 12GB Extended Memory Fusion (Total 24GB)",
+      "Processor": "MediaTek Dimensity 8200 Ultimate 5G (4nm Octa-core up to 3.1 GHz, Mali-G610 MC6 GPU)",
+      "Display": "6.78\" 1.5K AMOLED (2780 x 1264), 144Hz Ultra-Smooth Refresh, 10-bit 1.07 Billion Colors, 2160Hz PWM Dimming",
+      "Rear Camera System": "Triple 50MP Studio System: 50MP Sony IMX890 (1/1.56\", ƒ/1.9, OIS, 4K 60fps HDR) + 50MP Ultra-Wide & Macro (114° FOV) + 2MP Depth, Action Cam Classic Dial with Breathing Light",
+      "Front Camera": "50MP Eye-Tracking Autofocus Selfie with Dual-Color Temperature Front Flash",
+      "Battery & Charging": "5,000 mAh battery with 70W Ultra Fast Charging (0 to 100% in 45 mins), 3 charging modes (Low Temp, Smart, Hyper)",
+      "Network & SIM": "5G SA/NSA Dual SIM (2x Nano-SIM), MTN Ghana, Telecel & AT Ghana 5G/4G Optimized, Wi-Fi 6, Bluetooth 5.3",
+      "Audio & Haptics": "Dual Stereo Speakers tuned by Dolby Atmos, Hi-Res Audio Certified, X-Axis Linear Haptic Motor",
+      "Operating System": "HiOS 14 based on Android 14",
+      "Weight & Dimensions": "189 g | 164.0 x 74.5 x 7.7 mm"
+    },
+    manufacturingDetails: {
+      brandName: "Tecno Mobile",
+      manufacturer: "Transsion Holdings Co., Ltd. (Building 1A, Shenzhen High-Tech Park, Guangdong, China)",
+      modelNumber: "Camon 30 Pro 5G - CL8",
+      countryOfOrigin: "Manufactured by Transsion Holdings",
+      certifications: ["NCA Ghana Certified", "Carlcare Official Authorized", "CE", "RoHS"],
+      boxContents: [
+        "Tecno Camon 30 Pro 5G Phone",
+        "Original 70W Ultra Fast Wall Charger",
+        "Braided USB Type-C Cable",
+        "Protective Matte Phone Case",
+        "Tempered Screen Protector",
+        "SIM Ejector Pin",
+        "Carlcare 13-Month Ghana Warranty Card"
+      ]
+    },
+    warrantyAndShipping: {
+      warrantyPeriod: "13 Months Official Carlcare Ghana Warranty",
+      warrantyCoverage: "Full nationwide repair coverage handled through Carlcare Service Centers across Accra (Circle, Kwame Nkrumah Ave), Kumasi, Tamale, and Takoradi.",
+      deliveryEstimate: "Greater Accra: 2–4 hours; Regional: 24–48 hours.",
+      returnPolicy: "7-day replacement guarantee."
+    },
+    features: ["Sony IMX890 50MP OIS", "Dimensity 8200 5G", "70W Ultra Fast Charge", "13-Month Carlcare Warranty"],
+    isTrending: true,
+    isOnSale: true,
+    discount: 10,
+    shipping: {
+      local: true,
+      weight: "0.19kg",
+      dimensions: "16.4 x 7.5 x 0.8 cm"
+    }
+  },
+
+  {
+    id: "PHO006",
+    sku: "PHO-TECNO-SP20P-006",
+    name: "Tecno Spark 20 Pro (256GB - Moonlit Black)",
+    brand: "Tecno",
+    manufacturer: "Transsion Holdings Co., Ltd. Shenzhen, China",
+    modelNumber: "KJ6",
+    countryOfOrigin: "Manufactured by Transsion Holdings",
+    category: "smartphones",
+    subcategory: "tecno-mobile",
+    price: 1850.00,
+    originalPrice: 2050.00,
+    currency: "GH₵",
+    stock: 25,
+    images: [
+      "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&h=450&fit=crop",
+      "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=600&h=450&fit=crop",
+      "https://images.unsplash.com/photo-1580910051074-3eb694886505?w=600&h=450&fit=crop"
+    ],
+    description: "The undisputed value champion: Armed with 108MP ultra-sensing main camera with 3x lossless zoom, MediaTek Helio G99 6nm gaming processor, massive 256GB storage, smooth 120Hz IPS display with Dynamic Port notifications, stereo dual speakers with DTS sound, and 5000mAh battery with 33W fast charging.",
+    specifications: {
+      "Storage Capacity": "256GB Internal ROM (Expandable up to 1TB via Dedicated MicroSD slot)",
+      "RAM": "8GB Physical RAM + 8GB Memory Fusion Expansion (Total 16GB)",
+      "Processor": "MediaTek Helio G99 (6nm Octa-core up to 2.2 GHz, Arm Mali-G57 MC2 GPU)",
+      "Display": "6.78\" FHD+ (2460 x 1080) Punch-hole Display, 120Hz Adaptive Refresh, Dynamic Port notification bar",
+      "Rear Camera System": "108MP Ultra-Sensing Main Camera (1/1.67\" sensor, ƒ/1.75, 3x in-sensor lossless zoom) + AI Auxiliary Lens with Quad-LED Flash",
+      "Front Camera": "32MP Glowing Selfie with Dual Micro-slit Flash (3 adjustable brightness modes)",
+      "Battery & Charging": "5,000 mAh all-day battery, 33W Fast Charge (Ghana 3-pin adapter included in box)",
+      "Network & SIM": "4G LTE / 3G / 2G, Triple Card Slot (2x Nano-SIM + 1x MicroSD), VoLTE enabled on MTN Ghana, Telecel & AT",
+      "Audio": "DTS Stereo Dual Speakers with 400% Volume Boost and Volume Algorithm",
+      "Operating System": "HiOS 13.5 based on Android 13 (Upgradable to Android 14)",
+      "Durability": "IP53 splash and dust resistance, Side-mounted fast fingerprint sensor",
+      "Weight & Dimensions": "190 g | 168.6 x 76.6 x 8.4 mm"
+    },
+    manufacturingDetails: {
+      brandName: "Tecno Mobile Spark Series",
+      manufacturer: "Transsion Holdings Co., Ltd. (Shenzhen, China)",
+      modelNumber: "KJ6 (Tecno Spark 20 Pro)",
+      countryOfOrigin: "Manufactured in China",
+      certifications: ["NCA Ghana Type Approved", "Carlcare Warranty Authorized", "CE", "FCC"],
+      boxContents: [
+        "Tecno Spark 20 Pro Phone",
+        "33W Fast Power Brick (Ghana 3-Pin BS 1363)",
+        "USB Type-C Cable",
+        "Protective Clear Case",
+        "Pre-applied Screen Protector",
+        "SIM Eject Tool",
+        "13-Month Carlcare Warranty Card"
+      ]
+    },
+    warrantyAndShipping: {
+      warrantyPeriod: "13 Months Official Carlcare Warranty",
+      warrantyCoverage: "Full genuine warranty covering mainboard, display, and camera across 40+ Carlcare service centres in Ghana.",
+      deliveryEstimate: "Greater Accra: 2–3 hours; Other regions: 24–48 hours nationwide.",
+      returnPolicy: "7-day return guarantee."
+    },
+    features: ["108MP Ultra-Sensing Camera", "Helio G99 Gaming Chipset", "Stereo Dual Speakers DTS", "33W Fast Charge Included"],
+    isTrending: true,
+    isOnSale: true,
+    discount: 10,
+    shipping: {
+      local: true,
+      weight: "0.19kg",
+      dimensions: "16.9 x 7.7 x 0.8 cm"
+    }
+  },
+
+  // ========================================
   // LAPTOPS
   // ========================================
   
@@ -588,9 +985,9 @@ const products = [
     currency: "GH₵",
     stock: 100,
     images: [
-      "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&h=450&fit=crop",
-      "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&h=450&fit=crop",
-      "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600&h=450&fit=crop"
+      "src/assets/images/usb_c_cable.jpg",
+      "src/assets/images/usb_c_cable_2.jpg",
+      "src/assets/images/usb_c_connectors.jpg"
     ],
     description: "Heavy-duty ultra-fast 100W Power Delivery cable featuring E-Marker intelligent power regulation chip. Fast-charges MacBook Pro, Dell XPS, HP laptops, and smartphones at maximum rated speed with 480Mbps data sync.",
     specifications: {
@@ -759,6 +1156,17 @@ const products = [
 
 const categories = [
   {
+    id: "smartphones",
+    name: "📱 Smartphones & Mobile",
+    icon: "📱",
+    subcategories: [
+      { id: "all-smartphones", name: "All Mobile Phones" },
+      { id: "iphone-apple", name: "Apple iPhone" },
+      { id: "samsung-galaxy", name: "Samsung Galaxy" },
+      { id: "tecno-mobile", name: "Tecno Mobile" }
+    ]
+  },
+  {
     id: "computers",
     name: "💻 Computers & Laptops",
     icon: "💻",
@@ -885,7 +1293,9 @@ function searchProducts(query) {
     product.description.toLowerCase().includes(searchTerm) ||
     product.sku.toLowerCase().includes(searchTerm) ||
     (product.brand && product.brand.toLowerCase().includes(searchTerm)) ||
-    (product.modelNumber && product.modelNumber.toLowerCase().includes(searchTerm))
+    (product.modelNumber && product.modelNumber.toLowerCase().includes(searchTerm)) ||
+    (product.category && product.category.toLowerCase().includes(searchTerm)) ||
+    (product.subcategory && product.subcategory.toLowerCase().includes(searchTerm))
   );
 }
 

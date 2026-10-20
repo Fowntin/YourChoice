@@ -36,7 +36,7 @@ dotenv.config({ path: path.resolve(__dirname, '..', '.env'), override: true });
 const GhanaValidation = require(path.resolve(__dirname, '../ghana-validation.js'));
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.DEFAULT_APP_PORT || 3000;
 const rootDir = path.join(__dirname, '..');
 const JWT_SECRET = process.env.JWT_SECRET || 'yourchoice_default_fallback_secret_key_2026';
 

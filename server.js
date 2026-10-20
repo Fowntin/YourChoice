@@ -10,7 +10,8 @@ const staticProducts = require('./src/assets/products.js');
 
 const app = require('./backend/server');
 
-const PORT = process.env.PORT || 3000;
+// Bind to DEFAULT_APP_PORT or port 3000 (NGINX listens on 8080 and proxies to 3000)
+const PORT = process.env.DEFAULT_APP_PORT || 3000;
 const HOST = '0.0.0.0';
 
 if (require.main === module) {

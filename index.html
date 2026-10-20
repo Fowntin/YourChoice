@@ -7,7 +7,7 @@
   <meta name="description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
   <meta property="og:title" content="YourChoice" />
   <meta property="og:description" content="YourChoice - Modern computer and electronics store with cart, checkout, customer accounts, and admin dashboard." />
-  <link rel="stylesheet" href="style.css?v=v202610191004" />
+  <link rel="stylesheet" href="style.css?v=v202610191050" />
 </head>
 <body>
 
@@ -234,23 +234,37 @@
     <!-- Sentinel for hardware-accelerated sticky detection -->
     <div id="sticky-nav-sentinel" class="sticky-nav-sentinel" aria-hidden="true"></div>
     <!-- Sticky Segmented Category Navigation -->
-    <div class="products-header-sticky">
+    <div class="products-header-sticky" id="products-header-sticky">
       <div class="products-header-inner">
-        <div class="products-title-group">
-          <h2>Explore Products</h2>
-          <span class="products-count-badge" id="products-count-badge">Loading items...</span>
-        </div>
-        <nav class="category-segmented-nav" aria-label="Product categories">
-          <div class="segmented-track" id="category-filter">
-            <button class="filter-btn active" data-category="all">All</button>
-            <button class="filter-btn" data-category="computers">Computers</button>
-            <button class="filter-btn" data-category="accessories">Accessories</button>
-            <button class="filter-btn" data-category="cables-power">Cables & Power</button>
-            <button class="filter-btn" data-category="pc-components">PC Components</button>
-            <button class="filter-btn" data-category="bags-protection">Bags & Protection</button>
-            <button class="filter-btn" data-category="networking">Networking</button>
+        <!-- Top Row: Title + Main Category Nav (Permanently visible side-by-side on desktop) -->
+        <div class="products-header-top-row">
+          <div class="products-title-group">
+            <h2>Explore Products</h2>
+            <span class="products-count-badge" id="products-count-badge">Loading items...</span>
           </div>
-        </nav>
+          <nav class="category-segmented-nav" aria-label="Product categories">
+            <div class="segmented-track" id="category-filter">
+              <button class="filter-btn active" data-category="all">All</button>
+              <button class="filter-btn" data-category="smartphones">Smartphones</button>
+              <button class="filter-btn" data-category="computers">Computers</button>
+              <button class="filter-btn" data-category="accessories">Accessories</button>
+              <button class="filter-btn" data-category="cables-power">Cables & Power</button>
+              <button class="filter-btn" data-category="pc-components">PC Components</button>
+              <button class="filter-btn" data-category="bags-protection">Bags & Protection</button>
+              <button class="filter-btn" data-category="networking">Networking</button>
+            </div>
+          </nav>
+        </div>
+        <!-- Subcategory / Brand Segmented Filter Bar (Clean secondary row beneath main category nav) -->
+        <div class="subcategory-segmented-wrap" id="subcategory-segmented-wrap" style="display: none;" aria-label="Brand & model filters">
+          <div class="subcategory-lead-badge" id="subcategory-lead-badge">
+            <span class="subcategory-lead-icon" aria-hidden="true">🏷️</span>
+            <span class="subcategory-lead-text" id="subcategory-lead-text">Brand / Filter:</span>
+          </div>
+          <div class="subcategory-track" id="subcategory-filter">
+            <!-- Dynamically populated subcategory buttons -->
+          </div>
+        </div>
       </div>
     </div>
 
@@ -910,9 +924,9 @@
   </div>
 </div>
 
-  <script src="src/products.js?v=v202610191004"></script>
-  <script src="ghana-validation.js?v=v202610191004"></script>
-  <script src="script.js?v=v202610191004"></script>
+  <script src="src/products.js?v=v202610191050"></script>
+  <script src="ghana-validation.js?v=v202610191050"></script>
+  <script src="script.js?v=v202610191050"></script>
   <script>
     // Check user authentication status (unified navigation)
     function checkAuthStatus() {

@@ -12,6 +12,11 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+function formatPrice(price) {
+  const num = Number(price) || 0;
+  return `GH₵ ${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 // ========================================
 // CART MANAGEMENT FUNCTIONS
 // ========================================
@@ -1065,7 +1070,7 @@ function getCarouselLayout() {
     cardWidth = Math.min(Math.round(containerWidth * 0.84), 360);
     centerOffset = Math.round((containerWidth - cardWidth) / 2);
   } else {
-    gap = isTablet ? 20 : 32;
+    gap = isTablet ? 20 : 24;
     const totalGaps = (computedSlidesPerView - 1) * gap;
     cardWidth = Math.max(Math.round((containerWidth - totalGaps) / computedSlidesPerView), 220);
     centerOffset = 0;
@@ -1094,6 +1099,8 @@ function applyCarouselCardDimensions() {
     card.style.minWidth = `${cardWidth}px`;
     card.style.maxWidth = `${cardWidth}px`;
     card.style.flexShrink = '0';
+    card.style.alignSelf = 'stretch';
+    card.style.boxSizing = 'border-box';
     card.style.height = '100%';
     card.style.display = 'flex';
     card.style.flexDirection = 'column';
@@ -1248,24 +1255,39 @@ function createProductCard(product) {
   const card = document.createElement('div');
   card.className = 'product-card';
   
+  // Standardized sale & discount detection
+  const isOnSale = Boolean(
+    product.isOnSale || 
+    product.hasDiscount || 
+    (product.originalPrice && product.originalPrice > product.price)
+  );
+  
+  const discountPercent = Math.round(
+    product.discount || 
+    product.discountPercentage || 
+    (product.originalPrice && product.originalPrice > product.price 
+      ? ((product.originalPrice - product.price) / product.originalPrice) * 100 
+      : 0)
+  );
+  
   // Create badges
   let badges = '';
-  if (product.isOnSale && product.discount > 0) {
-    badges += `<div class="discount">-${product.discount}%</div>`;
+  if (isOnSale && discountPercent > 0) {
+    badges += `<div class="discount">-${discountPercent}%</div>`;
   }
   if (product.isTrending) {
     badges += `<div class="trending-badge">🔥 Trending</div>`;
   }
   
-  // Create price display
+  // Create price display: current selling price FIRST in bold accent, original struck-through price SECOND
   let priceDisplay = '';
-  if (product.isOnSale && product.originalPrice > product.price) {
+  if (isOnSale && product.originalPrice && product.originalPrice > product.price) {
     priceDisplay = `
-      <span class="original-price">${product.currency} ${product.originalPrice.toFixed(2)}</span>
-      <span class="price">${product.currency} ${product.price.toFixed(2)}</span>
+      <span class="price">${formatPrice(product.price)}</span>
+      <span class="original-price">${formatPrice(product.originalPrice)}</span>
     `;
   } else {
-    priceDisplay = `<span class="price">${product.currency} ${product.price.toFixed(2)}</span>`;
+    priceDisplay = `<span class="price">${formatPrice(product.price)}</span>`;
   }
   
   // Create stock info
@@ -1278,18 +1300,22 @@ function createProductCard(product) {
     stockInfo = `<div class="stock-info">In stock</div>`;
   }
   
-  // Create features display
-  let featuresDisplay = '<div class="product-features empty" aria-hidden="true"></div>';
+  // Create features display (up to 2 key highlights with clean wrapping and title tooltips)
+  let featuresDisplay = '<div class="product-features empty" aria-hidden="true">&nbsp;</div>';
   if (product.features && product.features.length > 0) {
     featuresDisplay = '<div class="product-features">';
-    product.features.slice(0, 3).forEach(feature => {
-      featuresDisplay += `<span class="feature-tag">${feature}</span>`;
+    product.features.slice(0, 2).forEach(feature => {
+      featuresDisplay += `<span class="feature-tag" title="${escapeHtml(feature)}">${escapeHtml(feature)}</span>`;
     });
     featuresDisplay += '</div>';
   }
   
   const inWishlist = typeof isWishlisted === 'function' ? isWishlisted(product.id) : false;
-  const brandLabel = product.brand ? `<span class="product-card-interactive-tag">${escapeHtml(product.brand)}</span>` : '';
+  // Standardized Brand or Category Tag so every single card has identical vertical geometry
+  const brandOrCategory = product.brand 
+    ? product.brand 
+    : (product.category ? product.category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Original Gear');
+  const brandLabel = `<span class="product-card-interactive-tag">${escapeHtml(brandOrCategory)}</span>`;
 
   card.setAttribute('role', 'button');
   card.setAttribute('tabindex', '0');
@@ -1304,7 +1330,7 @@ function createProductCard(product) {
       </button>
     </div>
     <div class="product-image-wrap">
-      <img src="${product.images[0]}" alt="${escapeHtml(product.name)}" loading="lazy" />
+      <img src="${product.images && product.images[0] ? product.images[0] : 'src/assets/product1.jpg'}" alt="${escapeHtml(product.name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\\'product-image-fallback\\'><svg width=\\'36\\' height=\\'36\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'1.7\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\'><rect width=\\'14\\' height=\\'20\\' x=\\'5\\' y=\\'2\\' rx=\\'2\\' ry=\\'2\\'/><path d=\\'M12 18h.01\\'/></svg><span>${escapeHtml(product.brand || product.name)}</span></div>';" />
     </div>
     <div class="product-card-body">
       ${brandLabel}
@@ -1514,6 +1540,64 @@ function getCategoryDisplayName(id) {
   return id.charAt(0).toUpperCase() + id.slice(1);
 }
 
+function renderSubcategoryFilters(categoryId) {
+  const wrap = document.getElementById('subcategory-segmented-wrap');
+  const track = document.getElementById('subcategory-filter');
+  const leadText = document.getElementById('subcategory-lead-text');
+  if (!wrap || !track) return;
+
+  if (categoryId === 'all') {
+    wrap.style.display = 'none';
+    track.innerHTML = '';
+    return;
+  }
+
+  const categoryObj = typeof categories !== 'undefined' ? categories.find(c => c.id === categoryId) : null;
+  if (!categoryObj || !categoryObj.subcategories || categoryObj.subcategories.length === 0) {
+    wrap.style.display = 'none';
+    track.innerHTML = '';
+    return;
+  }
+
+  if (leadText) {
+    leadText.textContent = categoryId === 'smartphones' ? 'Brands:' : 'Subcategories:';
+  }
+
+  wrap.style.display = 'flex';
+  track.innerHTML = '';
+
+  // 1. "All" button within this subcategory
+  const allSubBtn = document.createElement('button');
+  allSubBtn.type = 'button';
+  allSubBtn.className = 'subfilter-btn active';
+  allSubBtn.setAttribute('data-subcategory', 'all');
+  allSubBtn.textContent = categoryId === 'smartphones' ? 'All Phones' : 'All ' + categoryObj.name.replace(/^[^a-zA-Z0-9]+\s*/, '');
+  allSubBtn.onclick = () => {
+    track.querySelectorAll('.subfilter-btn').forEach(b => b.classList.remove('active'));
+    allSubBtn.classList.add('active');
+    const filtered = products.filter(p => p.category === categoryId);
+    displayProducts(filtered);
+  };
+  track.appendChild(allSubBtn);
+
+  // 2. Individual subcategory brand buttons
+  categoryObj.subcategories.forEach(sub => {
+    if (sub.id === 'all-smartphones') return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'subfilter-btn';
+    btn.setAttribute('data-subcategory', sub.id);
+    btn.textContent = sub.name;
+    btn.onclick = () => {
+      track.querySelectorAll('.subfilter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filtered = products.filter(p => p.category === categoryId && p.subcategory === sub.id);
+      displayProducts(filtered);
+    };
+    track.appendChild(btn);
+  });
+}
+
 function setupCategoryFilter() {
   const filterButtons = document.querySelectorAll('.filter-btn');
   if (!filterButtons || filterButtons.length === 0) return;
@@ -1531,6 +1615,9 @@ function setupCategoryFilter() {
         button.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       }
 
+      // Render brand / subcategory track if available
+      renderSubcategoryFilters(category);
+
       if (category === 'all') {
         selectedCategories.clear();
         displayProducts(products);
@@ -1541,15 +1628,15 @@ function setupCategoryFilter() {
         displayProducts(filteredProducts);
       }
 
-      // Smooth scroll viewport to products catalog top if already scrolled past or docked
+      // Smooth scroll viewport to products catalog top only if user has scrolled deep past catalog top
       const productsSection = document.getElementById('products');
       const navbar = document.querySelector('.navbar');
       const navHeight = navbar ? navbar.offsetHeight : 64;
       if (productsSection) {
         const sectionTop = productsSection.getBoundingClientRect().top + window.scrollY;
         const targetTop = Math.max(0, sectionTop - navHeight);
-        // Only scroll if the user has scrolled down into the products catalog
-        if (window.scrollY > targetTop + 8) {
+        // Only scroll if the user has scrolled significantly deep down past the catalog header
+        if (window.scrollY > targetTop + 140) {
           window.scrollTo({
             top: targetTop,
             behavior: 'smooth'
@@ -2720,7 +2807,7 @@ function closeFaqModal() {
 
 function selectCategoryFromFooter(category) {
   const categoryAliases = {
-    'smartphones': 'computers',
+    'smartphones': 'smartphones',
     'laptops': 'computers',
     'audio': 'accessories',
     'pc-components': 'pc-components',
@@ -2833,6 +2920,10 @@ async function syncHybridCatalogFromBackend() {
             localItem.isTrending = serverItem.isTrending;
             localItem.hasDiscount = serverItem.hasDiscount;
             localItem.discountPercentage = serverItem.discountPercentage;
+            if (serverItem.isOnSale !== undefined) localItem.isOnSale = serverItem.isOnSale;
+            if (serverItem.discount !== undefined) localItem.discount = serverItem.discount;
+            if (serverItem.price !== undefined) localItem.price = serverItem.price;
+            if (serverItem.originalPrice !== undefined) localItem.originalPrice = serverItem.originalPrice;
           }
         });
       }
@@ -2840,8 +2931,13 @@ async function syncHybridCatalogFromBackend() {
       // If category filter is active, maintain filter view, otherwise refresh all
       const activeFilterBtn = document.querySelector('.filter-btn.active');
       const activeCategory = activeFilterBtn ? activeFilterBtn.getAttribute('data-category') : 'all';
+      const activeSubBtn = document.querySelector('.subfilter-btn.active');
+      const activeSub = activeSubBtn ? activeSubBtn.getAttribute('data-subcategory') : 'all';
       if (activeCategory && activeCategory !== 'all') {
-        const filtered = products.filter(p => p.category === activeCategory);
+        let filtered = products.filter(p => p.category === activeCategory);
+        if (activeSub && activeSub !== 'all') {
+          filtered = filtered.filter(p => p.subcategory === activeSub);
+        }
         displayProducts(filtered);
       } else {
         displayProducts(products);
@@ -2897,10 +2993,10 @@ function openProductDetailModal(productOrId) {
   const origPriceEl = document.getElementById('modal-product-orig-price');
   const discountEl = document.getElementById('modal-product-discount');
 
-  if (priceEl) priceEl.textContent = `${product.currency || 'GH₵'} ${Number(product.price).toFixed(2)}`;
+  if (priceEl) priceEl.textContent = formatPrice(product.price);
   if (origPriceEl) {
     if (product.originalPrice && product.originalPrice > product.price) {
-      origPriceEl.textContent = `${product.currency || 'GH₵'} ${Number(product.originalPrice).toFixed(2)}`;
+      origPriceEl.textContent = formatPrice(product.originalPrice);
       origPriceEl.style.display = 'inline';
     } else {
       origPriceEl.style.display = 'none';
