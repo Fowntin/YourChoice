@@ -38,11 +38,90 @@ const GhanaValidation = require(path.resolve(__dirname, '../ghana-validation.js'
 const app = express();
 const PORT = process.env.DEFAULT_APP_PORT || 3000;
 const rootDir = path.join(__dirname, '..');
-const JWT_SECRET = process.env.JWT_SECRET || 'yourchoice_default_fallback_secret_key_2026';
+
+// Strict JWT Secret Configuration: Zero predictable fallback keys in code
+let JWT_SECRET = process.env.JWT_SECRET;
+const INSECURE_DEFAULT_SECRETS = [
+  'yourchoice_default_fallback_secret_key_2026',
+  'yourchoice_jwt_super_secret_key_change_in_production',
+  'replace_with_a_cryptographically_secure_random_key_min_32_characters'
+];
+
+if (!JWT_SECRET || INSECURE_DEFAULT_SECRETS.includes(JWT_SECRET)) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('FATAL SECURITY ERROR: JWT_SECRET must be set to a strong unique secret in production environment! Refusing to start with insecure secret.');
+    process.exit(1);
+  } else if (process.env.NODE_ENV === 'test') {
+    JWT_SECRET = 'test_jwt_secret_for_automated_testing_only';
+  } else {
+    // Generate an ephemeral cryptographic random secret per server boot so no static key exists in source code
+    JWT_SECRET = crypto.randomBytes(32).toString('hex');
+    console.warn('⚠️ [SECURITY] No JWT_SECRET set. Generated cryptographically random ephemeral secret for this session. Hardcoded fallbacks have been removed.');
+  }
+}
+
+// Environment-Agnostic Production-Grade CORS Configuration
+// Dynamically supports Render backend + GitHub Pages frontend, custom domains, and local development
+const rawAllowedOrigins = process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || '';
+const configuredOrigins = rawAllowedOrigins
+  .split(',')
+  .map(s => s.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
+function isOriginAllowed(origin) {
+  if (!origin) return true; // Non-browser clients (curl, mobile apps, unit tests, server-to-server)
+  const clean = origin.trim().replace(/\/+$/, '');
+
+  // 1. Explicitly configured origins from environment variables (e.g. Render dashboard)
+  if (configuredOrigins.includes(clean)) return true;
+
+  // 2. Any GitHub Pages deployment origin (e.g. https://<user>.github.io)
+  if (/^https:\/\/[a-zA-Z0-9-]+\.github\.io$/i.test(clean)) return true;
+
+  // 3. Localhost and 127.0.0.1 on any port for development/testing
+  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(clean)) return true;
+
+  // 4. Cloud environment preview domains (*.run.app)
+  if (/^https:\/\/[a-zA-Z0-9-]+\.run\.app$/i.test(clean)) return true;
+
+  return false;
+}
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (isOriginAllowed(origin)) {
+      return callback(null, true);
+    }
+    const err = new Error(`CORS policy does not allow access from origin: ${origin}`);
+    err.status = 403;
+    return callback(err, false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400 // Cache preflight requests for 24 hours
+};
 
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
+
+// Determine initial admin credentials from explicit environment variables only
+const isTestEnv = process.env.NODE_ENV === 'test';
+const envAdminUser = (process.env.ADMIN_USERNAME || (isTestEnv ? 'admin' : '')).trim();
+const envAdminPass = process.env.ADMIN_INITIAL_PASSWORD || (isTestEnv ? 'admin123' : '');
+const hasValidAdminEnv = Boolean(envAdminUser && envAdminPass && envAdminPass.length >= 6);
+
+const initialInMemoryAdmins = [];
+if (hasValidAdminEnv) {
+  initialInMemoryAdmins.push({
+    username: envAdminUser,
+    password: bcrypt.hashSync(envAdminPass, 10),
+    createdAt: new Date().toISOString()
+  });
+}
 
 // In-Memory Data Store (Active when MongoDB is not connected)
 const inMemory = {
@@ -52,13 +131,7 @@ const inMemory = {
     stock: typeof p.stock === 'number' ? p.stock : 10,
     totalSales: 0
   })),
-  admins: [
-    {
-      username: process.env.ADMIN_USERNAME || 'admin',
-      password: bcrypt.hashSync(process.env.ADMIN_INITIAL_PASSWORD || 'admin123', 10),
-      createdAt: new Date().toISOString()
-    }
-  ],
+  admins: initialInMemoryAdmins,
   orders: [
     {
       _id: 'ord_sample_101',
@@ -242,11 +315,17 @@ function authenticateUser(req, res, next) {
   }
 }
 
-// Create or verify initial admin user with salted bcrypt hash
+// Create or verify initial admin user with salted bcrypt hash (Zero Fallback Backdoors)
 async function createInitialAdmin() {
   try {
-    const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-    const initialPassword = process.env.ADMIN_INITIAL_PASSWORD || 'admin123';
+    // Zero Compromise Security: Never auto-seed default admin credentials if environment variables are not explicitly provided
+    if (!hasValidAdminEnv) {
+      console.log('🔒 Database Security: No ADMIN_USERNAME / ADMIN_INITIAL_PASSWORD environment variables provided. Automatic admin seeding skipped to protect database integrity.');
+      return;
+    }
+
+    const adminUsername = envAdminUser;
+    const initialPassword = envAdminPass;
 
     const existingAdmin = await Admin.findOne({ username: adminUsername });
     if (!existingAdmin) {
@@ -265,7 +344,7 @@ async function createInitialAdmin() {
       }
     }
   } catch (err) {
-    console.error('❌ Error creating initial admin in MongoDB:', err);
+    console.error('❌ Error verifying initial admin in MongoDB:', err);
   }
 }
 
@@ -1828,11 +1907,62 @@ app.post('/api/contact', async (req, res) => {
   }
 });
 
+// Rate Limiting & Anti-Brute-Force Tracker for Admin Console
+const adminLoginAttempts = new Map(); // ip -> { count, lockedUntil }
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded && typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket?.remoteAddress || req.ip || '127.0.0.1';
+}
+
+function checkAdminRateLimit(ip) {
+  const now = Date.now();
+  const record = adminLoginAttempts.get(ip);
+  if (!record) return { allowed: true };
+  if (record.lockedUntil && record.lockedUntil > now) {
+    const remainingMinutes = Math.ceil((record.lockedUntil - now) / 60000);
+    return { allowed: false, remainingMinutes };
+  }
+  if (record.lockedUntil && record.lockedUntil <= now) {
+    adminLoginAttempts.delete(ip);
+    return { allowed: true };
+  }
+  return { allowed: true };
+}
+
+function recordFailedAdminLogin(ip) {
+  const now = Date.now();
+  const record = adminLoginAttempts.get(ip) || { count: 0, firstAttempt: now };
+  record.count += 1;
+  if (record.count >= 5) {
+    record.lockedUntil = now + 15 * 60 * 1000; // 15 minute lockout
+    console.warn(`🚨 Admin login brute-force lockout triggered for IP: ${ip}. Locked for 15 minutes.`);
+  }
+  adminLoginAttempts.set(ip, record);
+}
+
+function clearFailedAdminLogin(ip) {
+  adminLoginAttempts.delete(ip);
+}
+
 // Admin login endpoint
 app.post('/api/admin/login', async (req, res) => {
   try {
+    const clientIp = getClientIp(req);
+    const rateCheck = checkAdminRateLimit(clientIp);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({
+        success: false,
+        message: `Too many failed login attempts. Security lockout active: please wait ${rateCheck.remainingMinutes} minute(s) before trying again.`
+      });
+    }
+
     const { username, password } = req.body || {};
     if (!isValidString(username, 1, 100) || !isValidString(password, 1, 128)) {
+      recordFailedAdminLogin(clientIp);
       return res.status(400).json({ success: false, message: 'Valid username and password required' });
     }
 
@@ -1853,6 +1983,7 @@ app.post('/api/admin/login', async (req, res) => {
     }
 
     if (!adminUser || !passwordHash) {
+      recordFailedAdminLogin(clientIp);
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
@@ -1869,8 +2000,12 @@ app.post('/api/admin/login', async (req, res) => {
     }
 
     if (!isMatch) {
+      recordFailedAdminLogin(clientIp);
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
+
+    // Login succeeded: clear any failed attempt history for this IP
+    clearFailedAdminLogin(clientIp);
 
     // Issue signed JWT
     const token = jwt.sign(
@@ -2227,8 +2362,11 @@ app.get('/reset-password', (req, res) => {
   res.sendFile(path.join(rootDir, 'reset-password.html'));
 });
 
-// Fallback error handler
+// Fallback error handler (including CORS origin restrictions)
 app.use((err, req, res, next) => {
+  if (err && (err.status === 403 || (err.message && err.message.includes('CORS')))) {
+    return res.status(403).json({ error: err.message || 'CORS Forbidden' });
+  }
   console.error('[Error]', err);
   if (res.headersSent) {
     return next(err);

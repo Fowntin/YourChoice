@@ -468,11 +468,12 @@ const CART_STORAGE_KEY = 'cart';
 const CART_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days rolling expiration window
 const WISHLIST_STORAGE_KEY = 'userWishlist';
 
-// Helper to detect static hosting environments (e.g., GitHub Pages)
+// Helper to detect strictly offline/file hosting without any configured backend
 function isStaticHost() {
   if (typeof window === 'undefined') return false;
-  const host = window.location.hostname || '';
-  return host.endsWith('github.io') || window.location.protocol === 'file:';
+  // If an API Base URL is active (including Render backend on GitHub Pages), it's not a disconnected static host
+  if (window.APP_CONFIG && window.APP_CONFIG.API_BASE_URL) return false;
+  return window.location.protocol === 'file:';
 }
 
 // Debounced background sync for authenticated accounts
@@ -497,7 +498,8 @@ function syncActiveUserCartAndWishlistDebounced() {
   userSyncDebounceTimer = setTimeout(async () => {
     try {
       const currentWishlist = typeof getWishlist === 'function' ? getWishlist() : [];
-      await fetch('/api/user/cart-wishlist', {
+      const syncUrl = window.getApiUrl ? window.getApiUrl('/api/user/cart-wishlist') : '/api/user/cart-wishlist';
+      await fetch(syncUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -528,7 +530,10 @@ async function syncActiveUserFromBackend() {
   if (!user.id && !user.email) return;
 
   try {
-    const res = await fetch(`/api/user/cart-wishlist?userId=${encodeURIComponent(user.id || '')}&email=${encodeURIComponent(user.email || '')}`);
+    const fetchCartUrl = window.getApiUrl 
+      ? window.getApiUrl(`/api/user/cart-wishlist?userId=${encodeURIComponent(user.id || '')}&email=${encodeURIComponent(user.email || '')}`)
+      : `/api/user/cart-wishlist?userId=${encodeURIComponent(user.id || '')}&email=${encodeURIComponent(user.email || '')}`;
+    const res = await fetch(fetchCartUrl);
     if (res.ok) {
       const data = await res.json();
       let cartUpdated = false;
@@ -2048,7 +2053,10 @@ async function loadUserOrders() {
     if (user.id) params.set('userId', user.id);
     if (user.email) params.set('email', user.email);
 
-    const response = await fetch(`/api/user/orders?${params.toString()}`);
+    const ordersUrl = window.getApiUrl 
+      ? window.getApiUrl(`/api/user/orders?${params.toString()}`)
+      : `/api/user/orders?${params.toString()}`;
+    const response = await fetch(ordersUrl);
     if (response.ok) {
       const orders = await response.json();
       if (Array.isArray(orders)) {
@@ -2293,7 +2301,8 @@ async function openUserProfileModal() {
   // Fetch freshest profile from backend if authToken exists
   if (authToken) {
     try {
-      const res = await fetch('/api/user/profile', {
+      const getProfileUrl = window.getApiUrl ? window.getApiUrl('/api/user/profile') : '/api/user/profile';
+      const res = await fetch(getProfileUrl, {
         headers: {
           'Authorization': `Bearer ${authToken}`
         }
@@ -2441,7 +2450,8 @@ async function handleProfileFormSubmit(e) {
   }
 
   try {
-    const res = await fetch('/api/user/profile', {
+    const putProfileUrl = window.getApiUrl ? window.getApiUrl('/api/user/profile') : '/api/user/profile';
+    const res = await fetch(putProfileUrl, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -2693,7 +2703,8 @@ function setupContactForm() {
       sentSuccessfully = true;
     } else {
       try {
-        const response = await fetch('/api/contact', {
+        const contactUrl = window.getApiUrl ? window.getApiUrl('/api/contact') : '/api/contact';
+        const response = await fetch(contactUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -2905,7 +2916,8 @@ let activeModalImageIndex = 0;
 // 1. Asynchronously fetch live MongoDB metrics (stock, sales) and update the in-memory catalog
 async function syncHybridCatalogFromBackend() {
   try {
-    const res = await fetch('/api/products');
+    const productsUrl = window.getApiUrl ? window.getApiUrl('/api/products') : '/api/products';
+    const res = await fetch(productsUrl);
     if (!res.ok) return;
     const serverProducts = await res.json();
     if (Array.isArray(serverProducts) && serverProducts.length > 0) {

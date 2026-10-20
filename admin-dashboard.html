@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Dashboard | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610190852" />
+  <link rel="stylesheet" href="style.css?v=v202610201120" />
 </head>
 <body class="admin-page-body">
   <div class="admin-dashboard" id="admin-dashboard-container" style="display: none;">
@@ -18,6 +18,9 @@
           </div>
 
           <div class="admin-user-group">
+            <span class="admin-db-badge" id="admin-api-badge" title="Active Backend API Endpoint">
+              <span class="db-status-dot" style="background: #10b981;"></span> <span id="active-api-host">API: Resolving...</span>
+            </span>
             <span class="admin-db-badge" id="admin-db-badge" title="Active Database Connection">
               <span class="db-status-dot"></span> <span id="active-db-name">DB: yourchoice</span>
             </span>
@@ -220,6 +223,7 @@
   <!-- Admin Toast Notification -->
   <div id="admin-toast" class="admin-toast" style="display: none;"></div>
 
+  <script src="config.js?v=v202610201120"></script>
   <script>
     const adminToken = localStorage.getItem('adminToken');
     const adminUser = localStorage.getItem('adminUser') || 'Admin';
@@ -291,10 +295,31 @@
       return false;
     }
 
-    // Resilient fetch helper with automatic retries for transient disconnects
+    // Helper: Update active API indicator in dashboard header
+    function updateApiBadge() {
+      const apiBadge = document.getElementById('active-api-host');
+      if (!apiBadge) return;
+      const base = (window.APP_CONFIG && window.APP_CONFIG.API_BASE_URL) || '';
+      if (base) {
+        try {
+          const parsed = new URL(base);
+          apiBadge.textContent = `API: ${parsed.hostname}`;
+        } catch (_) {
+          apiBadge.textContent = `API: ${base.replace(/^https?:\/\//, '')}`;
+        }
+      } else {
+        apiBadge.textContent = 'API: Same-Origin';
+      }
+    }
+
+    // Resilient fetch helper with automatic retries for transient disconnects & Render cold-starts
     async function resilientFetch(url, options = {}, retries = 2, delay = 800) {
+      const targetUrl = (window.getApiUrl && typeof window.getApiUrl === 'function')
+        ? window.getApiUrl(url)
+        : url;
       try {
-        const response = await fetch(url, options);
+        const response = await fetch(targetUrl, options);
+        updateApiBadge();
         return response;
       } catch (err) {
         if (retries > 0) {
@@ -503,7 +528,8 @@
 
     async function markMessageReplied(id) {
       try {
-        await fetch(`/api/admin/messages/${id}/status`, {
+        const url = window.getApiUrl ? window.getApiUrl(`/api/admin/messages/${id}/status`) : `/api/admin/messages/${id}/status`;
+        await fetch(url, {
           method: 'PATCH',
           headers: getAuthHeaders(),
           body: JSON.stringify({ status: 'Replied' })
@@ -545,7 +571,8 @@
       submitBtn.textContent = 'Creating...';
 
       try {
-        const response = await fetch('/api/admin/create', {
+        const createUrl = window.getApiUrl ? window.getApiUrl('/api/admin/create') : '/api/admin/create';
+        const response = await fetch(createUrl, {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify({ username, password })
@@ -646,7 +673,8 @@
     // Update order status
     async function updateOrderStatus(orderId, newStatus) {
       try {
-        const response = await fetch(`/api/admin/orders/${orderId}`, {
+        const url = window.getApiUrl ? window.getApiUrl(`/api/admin/orders/${orderId}`) : `/api/admin/orders/${orderId}`;
+        const response = await fetch(url, {
           method: 'PUT',
           headers: getAuthHeaders(),
           body: JSON.stringify({ status: newStatus })

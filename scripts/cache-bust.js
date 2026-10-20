@@ -19,6 +19,7 @@ const htmlFiles = [
   'login.html',
   'register.html',
   'orders.html',
+  'reset-password.html',
   'admin-dashboard.html',
   'admin-login.html'
 ];

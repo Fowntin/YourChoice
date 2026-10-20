@@ -896,5 +896,89 @@ test('Navbar Customer Controls: Desktop Aesthetics & Rotated Tablet Responsivene
   assert.match(styleCss, /@media screen and \(min-width:\s*1920px\)/, 'Must have ultra-wide display enhancement query (>= 1920px)');
 });
 
+test('Environment-Agnostic CORS & Production Integration Suite', async () => {
+  // 1. GitHub Pages origin should be permitted and receive appropriate CORS headers
+  const ghPagesOrigin = 'https://fosterawor.github.io';
+  const corsRes = await request(app)
+    .get('/api/health')
+    .set('Origin', ghPagesOrigin);
+  assert.equal(corsRes.status, 200);
+  assert.equal(corsRes.headers['access-control-allow-origin'], ghPagesOrigin);
+  assert.equal(corsRes.headers['access-control-allow-credentials'], 'true');
 
+  // 2. Preflight OPTIONS request from GitHub Pages should succeed with 200/204 and allowed methods/headers
+  const preflightRes = await request(app)
+    .options('/api/admin/login')
+    .set('Origin', ghPagesOrigin)
+    .set('Access-Control-Request-Method', 'POST')
+    .set('Access-Control-Request-Headers', 'Content-Type,Authorization');
+  assert.ok(preflightRes.status === 200 || preflightRes.status === 204);
+  assert.equal(preflightRes.headers['access-control-allow-origin'], ghPagesOrigin);
+  assert.match(preflightRes.headers['access-control-allow-methods'], /POST/);
+  assert.match(preflightRes.headers['access-control-allow-headers'], /Authorization/i);
 
+  // 3. Localhost origin should also be permitted for local development
+  const localRes = await request(app)
+    .get('/api/health')
+    .set('Origin', 'http://localhost:5500');
+  assert.equal(localRes.status, 200);
+  assert.equal(localRes.headers['access-control-allow-origin'], 'http://localhost:5500');
+
+  // 4. Unauthorized suspicious domain should be blocked by CORS
+  const untrustedRes = await request(app)
+    .get('/api/health')
+    .set('Origin', 'https://malicious-attacker-site.com');
+  assert.equal(untrustedRes.status, 403);
+  assert.match(untrustedRes.body.error, /CORS/i);
+});
+
+test('Admin Console Brute-Force Rate Limiting & Lockout Suite', async () => {
+  // 1. Simulate multiple failed login attempts from an untrusted client
+  const fakeIp = '198.51.100.99';
+  for (let i = 0; i < 5; i++) {
+    const failedRes = await request(app)
+      .post('/api/admin/login')
+      .set('x-forwarded-for', fakeIp)
+      .send({ username: 'attacker', password: `wrong_pass_${i}` });
+    assert.equal(failedRes.status, 401);
+  }
+
+  // 2. 6th attempt should trigger 429 Too Many Requests (Lockout)
+  const lockedRes = await request(app)
+    .post('/api/admin/login')
+    .set('x-forwarded-for', fakeIp)
+    .send({ username: 'attacker', password: 'another_attempt' });
+  assert.equal(lockedRes.status, 429);
+  assert.match(lockedRes.body.message, /too many failed login attempts/i);
+});
+
+test('Client Universal Config Script & HTML Integration Verification', async () => {
+  const fs = await import('fs');
+  const path = await import('path');
+
+  // 1. Verify config.js exists and exports window.APP_CONFIG and window.getApiUrl
+  const configJsPath = path.join(__dirname, '../../config.js');
+  assert.ok(fs.existsSync(configJsPath), 'config.js must exist at workspace root');
+  const configContent = fs.readFileSync(configJsPath, 'utf8');
+  assert.match(configContent, /window\.APP_CONFIG\s*=/);
+  assert.match(configContent, /getApiUrl/);
+  assert.match(configContent, /github\.io/);
+
+  // 2. Verify all primary HTML pages include config.js
+  const requiredPages = [
+    'index.html',
+    'admin-dashboard.html',
+    'admin-login.html',
+    'login.html',
+    'register.html',
+    'reset-password.html',
+    'checkout.html'
+  ];
+
+  for (const page of requiredPages) {
+    const pagePath = path.join(__dirname, '../../', page);
+    assert.ok(fs.existsSync(pagePath), `${page} must exist`);
+    const pageHtml = fs.readFileSync(pagePath, 'utf8');
+    assert.match(pageHtml, /src="config\.js(\?[^"]*)?"/, `${page} must include config.js`);
+  }
+});

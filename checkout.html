@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Checkout | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610190852" />
+  <link rel="stylesheet" href="style.css?v=v202610201120" />
 </head>
 <body>
   <header class="navbar">
@@ -201,8 +201,9 @@
     </div>
   </div>
 
-  <script src="ghana-validation.js?v=v202610190852"></script>
-  <script src="script.js?v=v202610190852"></script>
+  <script src="config.js?v=v202610201120"></script>
+  <script src="ghana-validation.js?v=v202610201120"></script>
+  <script src="script.js?v=v202610201120"></script>
   <script>
     // Escape helper
     function escapeHtml(str) {
@@ -431,7 +432,8 @@
 
       // 2. Fetch authoritative profile from backend to ensure real-time persistence across sessions/devices
       try {
-        const res = await fetch('/api/user/profile', {
+        const profileUrl = window.getApiUrl ? window.getApiUrl('/api/user/profile') : '/api/user/profile';
+        const res = await fetch(profileUrl, {
           headers: { 'Authorization': `Bearer ${authToken}` }
         });
         if (res.ok) {
@@ -647,7 +649,8 @@
       } catch (e) {}
 
       try {
-        const response = await fetch('/api/orders', {
+        const orderUrl = window.getApiUrl ? window.getApiUrl('/api/orders') : '/api/orders';
+        const response = await fetch(orderUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -689,7 +692,8 @@
           // If logged in, clear account cart on server
           if (user.id || user.email) {
             try {
-              fetch('/api/user/cart-wishlist', {
+              const clearCartUrl = window.getApiUrl ? window.getApiUrl('/api/user/cart-wishlist') : '/api/user/cart-wishlist';
+              fetch(clearCartUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId: user.id, email: user.email, cart: [] })

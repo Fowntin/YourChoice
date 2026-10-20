@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Login | YourChoice</title>
-  <link rel="stylesheet" href="style.css?v=v202610190852" />
+  <link rel="stylesheet" href="style.css?v=v202610201120" />
 </head>
 <body class="admin-page-body">
   <div class="admin-login-container">
@@ -35,10 +35,31 @@
       <div class="admin-links">
         <a href="index.html">← Return to Store</a>
       </div>
-      <p class="admin-auth-note">Note: New administrators can only be created by an authenticated administrator within their dashboard.</p>
+
+      <!-- Environment & Server Connection Configuration -->
+      <div class="admin-server-config" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.82rem; color: #94a3b8; text-align: center;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981;" id="server-status-dot"></span>
+          <span id="active-server-display">Target Backend: Resolving...</span>
+          <button type="button" id="toggle-server-settings-btn" style="background: none; border: none; color: #ff9a00; font-size: 0.78rem; cursor: pointer; text-decoration: underline; padding: 0;">Configure</button>
+        </div>
+
+        <div id="server-settings-panel" style="display: none; background: rgba(15, 23, 42, 0.6); padding: 0.75rem; border-radius: 6px; border: 1px solid #334155; text-align: left; margin-top: 0.5rem;">
+          <label for="custom-backend-input" style="display: block; font-size: 0.75rem; margin-bottom: 0.25rem; color: #cbd5e1;">Render / Custom API URL (e.g. https://your-app.onrender.com):</label>
+          <div style="display: flex; gap: 0.4rem;">
+            <input type="url" id="custom-backend-input" placeholder="https://yourchoice-backend.onrender.com" style="flex: 1; padding: 0.35rem 0.5rem; font-size: 0.8rem; background: #0f172a; border: 1px solid #475569; color: #fff; border-radius: 4px;" />
+            <button type="button" id="save-backend-url-btn" style="background: #2563eb; color: #fff; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; font-size: 0.78rem; cursor: pointer;">Save</button>
+            <button type="button" id="reset-backend-url-btn" style="background: #475569; color: #fff; border: none; border-radius: 4px; padding: 0.35rem 0.5rem; font-size: 0.78rem; cursor: pointer;" title="Reset to auto-detect">Reset</button>
+          </div>
+          <small id="server-ping-msg" style="display: block; margin-top: 0.35rem; font-size: 0.72rem; color: #94a3b8;"></small>
+        </div>
+      </div>
+
+      <p class="admin-auth-note">Note: New administrators can only be created by an authenticated administrator within their dashboard, or via secure server-side environment variables.</p>
     </div>
   </div>
 
+  <script src="config.js?v=v202610201120"></script>
   <script>
     // Check if user was redirected from admin creation due to missing session
     const redirectNotice = sessionStorage.getItem('adminNotice');
@@ -50,15 +71,80 @@
       }
       sessionStorage.removeItem('adminNotice');
     }
+
+    // Refresh Server Connection display
+    function updateServerStatusDisplay() {
+      const displayEl = document.getElementById('active-server-display');
+      const inputEl = document.getElementById('custom-backend-input');
+      const dotEl = document.getElementById('server-status-dot');
+      const pingMsgEl = document.getElementById('server-ping-msg');
+
+      const currentApiBase = (window.APP_CONFIG && window.APP_CONFIG.API_BASE_URL) || '';
+      if (displayEl) {
+        displayEl.textContent = currentApiBase ? `Backend: ${currentApiBase.replace(/^https?:\/\//, '')}` : 'Backend: Same-Origin';
+      }
+      if (inputEl) {
+        inputEl.value = currentApiBase;
+      }
+
+      // Ping health check to verify connectivity
+      const healthUrl = window.getApiUrl ? window.getApiUrl('/api/health') : '/api/health';
+      fetch(healthUrl)
+        .then(res => res.json())
+        .then(data => {
+          if (dotEl) dotEl.style.background = '#10b981';
+          if (pingMsgEl) pingMsgEl.textContent = `✅ Connected to ${data.dbName || 'server'} (${data.database || 'active'})`;
+        })
+        .catch(() => {
+          if (dotEl) dotEl.style.background = '#f59e0b';
+          if (pingMsgEl) pingMsgEl.textContent = '⚠️ Cannot reach backend at this URL. Render instances may take ~30s to wake from sleep.';
+        });
+    }
+
+    // Toggle server configuration panel
+    document.getElementById('toggle-server-settings-btn').addEventListener('click', function() {
+      const panel = document.getElementById('server-settings-panel');
+      if (panel) {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      }
+    });
+
+    // Save custom backend URL
+    document.getElementById('save-backend-url-btn').addEventListener('click', function() {
+      const inputEl = document.getElementById('custom-backend-input');
+      const url = inputEl ? inputEl.value.trim() : '';
+      if (window.APP_CONFIG && window.APP_CONFIG.setCustomBackendUrl) {
+        window.APP_CONFIG.setCustomBackendUrl(url);
+      }
+      updateServerStatusDisplay();
+    });
+
+    // Reset backend URL to automatic detection
+    document.getElementById('reset-backend-url-btn').addEventListener('click', function() {
+      if (window.APP_CONFIG && window.APP_CONFIG.setCustomBackendUrl) {
+        window.APP_CONFIG.setCustomBackendUrl('');
+      }
+      updateServerStatusDisplay();
+    });
+
+    updateServerStatusDisplay();
+
     document.getElementById('admin-login-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
       const messageEl = document.getElementById('login-message');
+      const submitBtn = this.querySelector('button[type="submit"]');
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Authenticating...';
+      }
       
       try {
-        const response = await fetch('/api/admin/login', {
+        const loginUrl = window.getApiUrl ? window.getApiUrl('/api/admin/login') : '/api/admin/login';
+        const response = await fetch(loginUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -68,8 +154,14 @@
         
         const data = await response.json();
         
+        if (response.status === 429) {
+          messageEl.textContent = data.message || 'Too many failed login attempts. Please wait before retrying.';
+          messageEl.className = 'login-message error';
+          return;
+        }
+
         if (data.success && data.token) {
-          messageEl.textContent = 'Login successful! Redirecting...';
+          messageEl.textContent = 'Login successful! Redirecting to console...';
           messageEl.className = 'login-message success';
           // Store verified JWT session token
           localStorage.setItem('adminToken', data.token);
@@ -80,12 +172,17 @@
             window.location.replace('admin-dashboard.html');
           }, 600);
         } else {
-          messageEl.textContent = data.message || 'Login failed';
+          messageEl.textContent = data.message || 'Invalid administrator credentials.';
           messageEl.className = 'login-message error';
         }
       } catch (error) {
-        messageEl.textContent = 'Network error. Please try again.';
+        messageEl.textContent = 'Network error connecting to backend API. Please verify server status.';
         messageEl.className = 'login-message error';
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Sign In to Dashboard';
+        }
       }
     });
   </script>
