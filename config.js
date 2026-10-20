@@ -7,7 +7,7 @@
 
   // Configurable default production backend URL hosted on Render
   // If hosted on GitHub Pages and no override is set, requests will automatically route here
-  const DEFAULT_RENDER_BACKEND = 'https://yourchoice-backend.onrender.com';
+  const DEFAULT_RENDER_BACKEND = 'https://yourchoice-g473.onrender.com';
 
   /**
    * Resolves the active API base URL.
