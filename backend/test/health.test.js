@@ -981,4 +981,17 @@ test('Client Universal Config Script & HTML Integration Verification', async () 
     const pageHtml = fs.readFileSync(pagePath, 'utf8');
     assert.match(pageHtml, /src="config\.js(\?[^"]*)?"/, `${page} must include config.js`);
   }
+
+  // 3. Security Hardening: Ensure admin-login.html contains NO publicly exposed configuration controls
+  const adminLoginHtml = fs.readFileSync(path.join(__dirname, '../../admin-login.html'), 'utf8');
+  assert.doesNotMatch(adminLoginHtml, /id="toggle-server-settings-btn"/, 'admin-login.html must not contain public configure button');
+  assert.doesNotMatch(adminLoginHtml, /id="server-settings-panel"/, 'admin-login.html must not contain server settings panel');
+  assert.doesNotMatch(adminLoginHtml, /id="custom-backend-input"/, 'admin-login.html must not contain custom backend input');
+  assert.doesNotMatch(adminLoginHtml, /id="save-backend-url-btn"/, 'admin-login.html must not contain save backend button');
+  assert.doesNotMatch(adminLoginHtml, /class="admin-server-config"/, 'admin-login.html must not contain server config container');
+
+  // 4. Ensure config.js is locked to the authoritative backend without mutable localStorage override
+  assert.match(configContent, /https:\/\/yourchoice-g473\.onrender\.com/, 'config.js must contain authoritative backend URL');
+  assert.doesNotMatch(configContent, /setCustomBackendUrl/, 'config.js must not expose mutable setCustomBackendUrl method');
 });
+

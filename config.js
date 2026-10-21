@@ -11,35 +11,35 @@
 
   /**
    * Resolves the active API base URL.
+   * Locked strictly to code configuration to prevent client-side tampering.
    * Priority:
-   * 1. Explicit localStorage override (YOURCHOICE_API_URL or API_BASE_URL)
-   * 2. Window runtime configuration injection (__RUNTIME_CONFIG__.API_BASE_URL)
-   * 3. GitHub Pages detection (*.github.io -> DEFAULT_RENDER_BACKEND)
-   * 4. Same-origin fallback ('' for monolith / localhost / AI Studio preview)
+   * 1. Window runtime configuration injection (__RUNTIME_CONFIG__.API_BASE_URL)
+   * 2. GitHub Pages detection (*.github.io -> DEFAULT_RENDER_BACKEND)
+   * 3. Same-origin fallback ('' for monolith / localhost / AI Studio preview)
    */
   function resolveApiBaseUrl() {
     try {
-      // 1. Explicit manual override in browser storage
-      const storedUrl = localStorage.getItem('YOURCHOICE_API_URL') || localStorage.getItem('API_BASE_URL');
-      if (storedUrl && storedUrl.trim()) {
-        return storedUrl.trim().replace(/\/+$/, '');
-      }
+      // Security purge: remove any unauthorized or rogue localStorage overrides
+      localStorage.removeItem('YOURCHOICE_API_URL');
+      localStorage.removeItem('API_BASE_URL');
+    } catch (_) {}
 
-      // 2. Global runtime config object
+    try {
+      // 1. Global runtime config object (if injected by deployment platform)
       if (window.__RUNTIME_CONFIG__ && window.__RUNTIME_CONFIG__.API_BASE_URL) {
         return window.__RUNTIME_CONFIG__.API_BASE_URL.trim().replace(/\/+$/, '');
       }
 
-      // 3. GitHub Pages environment detection
+      // 2. GitHub Pages environment detection (locked to authoritative Render backend)
       const hostname = (window.location && window.location.hostname) ? window.location.hostname.toLowerCase() : '';
       if (hostname.endsWith('github.io')) {
         return DEFAULT_RENDER_BACKEND;
       }
     } catch (_) {
-      // Fallback in environments where localStorage is restricted
+      // Fallback
     }
 
-    // 4. Same-origin relative API path
+    // 3. Same-origin relative API path
     return '';
   }
 
@@ -69,24 +69,6 @@
         : '';
 
       return base ? `${base}${cleanPath}` : cleanPath;
-    },
-
-    /**
-     * Set or clear a custom backend URL at runtime (e.g., from admin connection settings).
-     * @param {string|null} url - Custom Render backend URL, or empty string to reset
-     */
-    setCustomBackendUrl: function (url) {
-      try {
-        if (!url || !url.trim()) {
-          localStorage.removeItem('YOURCHOICE_API_URL');
-          localStorage.removeItem('API_BASE_URL');
-        } else {
-          localStorage.setItem('YOURCHOICE_API_URL', url.trim().replace(/\/+$/, ''));
-        }
-      } catch (_) {}
-      window.APP_CONFIG.API_BASE_URL = resolveApiBaseUrl();
-      console.log('🔗 [YourChoice] Active API Base URL set to:', window.APP_CONFIG.API_BASE_URL || '(Same-Origin)');
-      return window.APP_CONFIG.API_BASE_URL;
     }
   };
 

@@ -36,25 +36,6 @@
         <a href="index.html">← Return to Store</a>
       </div>
 
-      <!-- Environment & Server Connection Configuration -->
-      <div class="admin-server-config" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.82rem; color: #94a3b8; text-align: center;">
-        <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981;" id="server-status-dot"></span>
-          <span id="active-server-display">Target Backend: Resolving...</span>
-          <button type="button" id="toggle-server-settings-btn" style="background: none; border: none; color: #ff9a00; font-size: 0.78rem; cursor: pointer; text-decoration: underline; padding: 0;">Configure</button>
-        </div>
-
-        <div id="server-settings-panel" style="display: none; background: rgba(15, 23, 42, 0.6); padding: 0.75rem; border-radius: 6px; border: 1px solid #334155; text-align: left; margin-top: 0.5rem;">
-          <label for="custom-backend-input" style="display: block; font-size: 0.75rem; margin-bottom: 0.25rem; color: #cbd5e1;">Render / Custom API URL (e.g. https://your-app.onrender.com):</label>
-          <div style="display: flex; gap: 0.4rem;">
-            <input type="url" id="custom-backend-input" placeholder="https://yourchoice-backend.onrender.com" style="flex: 1; padding: 0.35rem 0.5rem; font-size: 0.8rem; background: #0f172a; border: 1px solid #475569; color: #fff; border-radius: 4px;" />
-            <button type="button" id="save-backend-url-btn" style="background: #2563eb; color: #fff; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; font-size: 0.78rem; cursor: pointer;">Save</button>
-            <button type="button" id="reset-backend-url-btn" style="background: #475569; color: #fff; border: none; border-radius: 4px; padding: 0.35rem 0.5rem; font-size: 0.78rem; cursor: pointer;" title="Reset to auto-detect">Reset</button>
-          </div>
-          <small id="server-ping-msg" style="display: block; margin-top: 0.35rem; font-size: 0.72rem; color: #94a3b8;"></small>
-        </div>
-      </div>
-
       <p class="admin-auth-note">Note: New administrators can only be created by an authenticated administrator within their dashboard, or via secure server-side environment variables.</p>
     </div>
   </div>
@@ -71,63 +52,6 @@
       }
       sessionStorage.removeItem('adminNotice');
     }
-
-    // Refresh Server Connection display
-    function updateServerStatusDisplay() {
-      const displayEl = document.getElementById('active-server-display');
-      const inputEl = document.getElementById('custom-backend-input');
-      const dotEl = document.getElementById('server-status-dot');
-      const pingMsgEl = document.getElementById('server-ping-msg');
-
-      const currentApiBase = (window.APP_CONFIG && window.APP_CONFIG.API_BASE_URL) || '';
-      if (displayEl) {
-        displayEl.textContent = currentApiBase ? `Backend: ${currentApiBase.replace(/^https?:\/\//, '')}` : 'Backend: Same-Origin';
-      }
-      if (inputEl) {
-        inputEl.value = currentApiBase;
-      }
-
-      // Ping health check to verify connectivity
-      const healthUrl = window.getApiUrl ? window.getApiUrl('/api/health') : '/api/health';
-      fetch(healthUrl)
-        .then(res => res.json())
-        .then(data => {
-          if (dotEl) dotEl.style.background = '#10b981';
-          if (pingMsgEl) pingMsgEl.textContent = `✅ Connected to ${data.dbName || 'server'} (${data.database || 'active'})`;
-        })
-        .catch(() => {
-          if (dotEl) dotEl.style.background = '#f59e0b';
-          if (pingMsgEl) pingMsgEl.textContent = '⚠️ Cannot reach backend at this URL. Render instances may take ~30s to wake from sleep.';
-        });
-    }
-
-    // Toggle server configuration panel
-    document.getElementById('toggle-server-settings-btn').addEventListener('click', function() {
-      const panel = document.getElementById('server-settings-panel');
-      if (panel) {
-        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-      }
-    });
-
-    // Save custom backend URL
-    document.getElementById('save-backend-url-btn').addEventListener('click', function() {
-      const inputEl = document.getElementById('custom-backend-input');
-      const url = inputEl ? inputEl.value.trim() : '';
-      if (window.APP_CONFIG && window.APP_CONFIG.setCustomBackendUrl) {
-        window.APP_CONFIG.setCustomBackendUrl(url);
-      }
-      updateServerStatusDisplay();
-    });
-
-    // Reset backend URL to automatic detection
-    document.getElementById('reset-backend-url-btn').addEventListener('click', function() {
-      if (window.APP_CONFIG && window.APP_CONFIG.setCustomBackendUrl) {
-        window.APP_CONFIG.setCustomBackendUrl('');
-      }
-      updateServerStatusDisplay();
-    });
-
-    updateServerStatusDisplay();
 
     document.getElementById('admin-login-form').addEventListener('submit', async function(e) {
       e.preventDefault();
