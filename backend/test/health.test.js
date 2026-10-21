@@ -924,7 +924,15 @@ test('Environment-Agnostic CORS & Production Integration Suite', async () => {
   assert.equal(localRes.status, 200);
   assert.equal(localRes.headers['access-control-allow-origin'], 'http://localhost:5500');
 
-  // 4. Unauthorized suspicious domain should be blocked by CORS
+  // 4. Regional Cloud Run preview domain (*.europe-west2.run.app) MUST be authorized
+  const previewOrigin = 'https://ais-dev-4byn6tfl3sh3dddhssxxws-31943266741.europe-west2.run.app';
+  const previewRes = await request(app)
+    .get('/api/health')
+    .set('Origin', previewOrigin);
+  assert.equal(previewRes.status, 200);
+  assert.equal(previewRes.headers['access-control-allow-origin'], previewOrigin);
+
+  // 5. Unauthorized suspicious domain should be blocked by CORS
   const untrustedRes = await request(app)
     .get('/api/health')
     .set('Origin', 'https://malicious-attacker-site.com');

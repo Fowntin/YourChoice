@@ -75,14 +75,20 @@ function isOriginAllowed(origin) {
   // 1. Explicitly configured origins from environment variables (e.g. Render dashboard)
   if (configuredOrigins.includes(clean)) return true;
 
-  // 2. Any GitHub Pages deployment origin (e.g. https://<user>.github.io)
-  if (/^https:\/\/[a-zA-Z0-9-]+\.github\.io$/i.test(clean)) return true;
+  // 2. Any GitHub Pages deployment origin (supports user.github.io and subdomains)
+  if (/^https:\/\/([a-zA-Z0-9-]+\.)*github\.io$/i.test(clean)) return true;
 
   // 3. Localhost and 127.0.0.1 on any port for development/testing
   if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(clean)) return true;
 
-  // 4. Cloud environment preview domains (*.run.app)
-  if (/^https:\/\/[a-zA-Z0-9-]+\.run\.app$/i.test(clean)) return true;
+  // 4. Cloud environment preview domains (*.run.app including regional subdomains like *.europe-west2.run.app)
+  if (/^https:\/\/([a-zA-Z0-9-]+\.)*run\.app$/i.test(clean)) return true;
+
+  // 5. Google and AI Studio preview domains
+  if (/^https:\/\/([a-zA-Z0-9-]+\.)*(google\.com|googleusercontent\.com)$/i.test(clean)) return true;
+
+  // 6. Render service domains
+  if (/^https:\/\/([a-zA-Z0-9-]+\.)*onrender\.com$/i.test(clean)) return true;
 
   return false;
 }
@@ -108,10 +114,13 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(express.json());
 
-// Determine initial admin credentials from explicit environment variables only
-const isTestEnv = process.env.NODE_ENV === 'test';
-const envAdminUser = (process.env.ADMIN_USERNAME || (isTestEnv ? 'admin' : '')).trim();
-const envAdminPass = process.env.ADMIN_INITIAL_PASSWORD || (isTestEnv ? 'admin123' : '');
+// Determine initial admin credentials:
+// In production: strict explicit env variables required (no fallbacks).
+// In development / preview / test: provide sensible seeded credentials so local developer is never locked out.
+const isProd = process.env.NODE_ENV === 'production';
+
+const envAdminUser = (process.env.ADMIN_USERNAME || (!isProd ? 'admin' : '')).trim();
+const envAdminPass = process.env.ADMIN_INITIAL_PASSWORD || (!isProd ? 'admin123' : '');
 const hasValidAdminEnv = Boolean(envAdminUser && envAdminPass && envAdminPass.length >= 6);
 
 const initialInMemoryAdmins = [];
@@ -123,9 +132,30 @@ if (hasValidAdminEnv) {
   });
 }
 
+// Development seeded customer account for instant preview/local testing
+const initialInMemoryUsers = [];
+if (!isProd) {
+  initialInMemoryUsers.push({
+    id: 'usr_dev_sample_101',
+    _id: 'usr_dev_sample_101',
+    username: 'customer',
+    email: 'customer@example.com',
+    name: 'Sample Customer',
+    password: bcrypt.hashSync('customer123', 10),
+    phone: '+233 24 123 4567',
+    deliveryRegion: 'Greater Accra Region',
+    deliveryTown: 'East Legon',
+    deliveryLandmark: 'Near Boundary Road',
+    address: 'East Legon, Greater Accra, Ghana',
+    cart: [],
+    wishlist: [],
+    createdAt: new Date().toISOString()
+  });
+}
+
 // In-Memory Data Store (Active when MongoDB is not connected)
 const inMemory = {
-  users: [],
+  users: initialInMemoryUsers,
   products: staticProducts.map(p => ({
     productSku: p.id,
     stock: typeof p.stock === 'number' ? p.stock : 10,
